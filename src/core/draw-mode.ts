@@ -1,4 +1,13 @@
-import type { DrawController, DrawInfo } from "./draw-controller";
+import type { DrawController } from "./draw-controller";
+import type { Feature } from "geojson";
+
+export interface DrawInfo {
+  x: number;
+  y: number;
+  lng: number;
+  lat: number;
+  feature: Feature | undefined;
+}
 
 export interface DrawMode {
   onEnter?: (controller: DrawController) => void;

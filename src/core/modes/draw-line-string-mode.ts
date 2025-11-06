@@ -1,33 +1,45 @@
-import type { Feature, LineString, Point, Position } from "geojson";
-import { v4 as uuid } from "uuid";
-import type { DrawMode } from "../draw-mode";
-import type { DrawController, DrawInfo } from "../draw-controller";
+import type { DrawInfo, DrawMode } from "../draw-mode";
+import type { DrawController } from "../draw-controller";
+import type { Position } from "geojson";
 
 export class DrawLineStringMode implements DrawMode {
   private coordinates: Position[] = [];
-  private lineId?: string;
-  private handleIds: (string | number)[] = [];
+  private lineId?: string | number;
 
   onEnter(draw: DrawController) {
-    draw.setDoubleClickZoom(false);
     draw.setCursor("crosshair");
+    draw.setDoubleClickZoom(false);
   }
 
   onExit(draw: DrawController) {
-    if (this.lineId) draw.removeFeature(this.lineId);
+    if (this.lineId) draw.store.removeFeature(this.lineId);
     this.reset(draw);
   }
 
   onClick(info: DrawInfo, draw: DrawController) {
-    const { feature } = info;
-    if (feature?.properties?.handle) {
+    const coord: Position = [info.lng, info.lat];
+
+    if (info.feature?.properties?.handle) {
       this.finishLine(draw);
       return;
     }
 
-    this.coordinates.push([info.lng, info.lat]);
-    this.upsertLine(draw);
-    this.updateHandles(draw);
+    this.coordinates.push(coord);
+
+    if (!this.lineId) {
+      const lineFeature = draw.store.generateFeature("line", this.coordinates, {
+        props: { active: true },
+      });
+      if (!lineFeature) return;
+
+      this.lineId = lineFeature.id;
+      draw.store.addFeature(lineFeature);
+
+      if (this.lineId) draw.store.createHandle(this.lineId, coord);
+    } else {
+      this.updateLine(draw, this.coordinates, { active: true });
+      this.updateHandles(draw);
+    }
   }
 
   onDoubleClick(_info: DrawInfo, draw: DrawController) {
@@ -37,61 +49,38 @@ export class DrawLineStringMode implements DrawMode {
   onMouseMove(info: DrawInfo, draw: DrawController) {
     if (!this.lineId || this.coordinates.length === 0) return;
     const previewCoords = [...this.coordinates, [info.lng, info.lat]];
-    this.updateLine(draw, previewCoords);
+    this.updateLine(draw, previewCoords, { active: true });
   }
 
-  private upsertLine(draw: DrawController) {
-    if (!this.lineId) {
-      this.lineId = uuid();
-      const lineFeature = this.createLineFeature(this.coordinates, this.lineId, true);
-      draw.addFeature(lineFeature);
-    } else {
-      this.updateLine(draw, this.coordinates);
-    }
+  private updateLine(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
+    if (!this.lineId) return;
+
+    const lineFeature = draw.store.generateFeature("line", coords, {
+      id: this.lineId,
+      props,
+    });
+    if (!lineFeature) return;
+
+    draw.store.updateFeature(this.lineId, lineFeature);
+  }
+
+  private updateHandles(draw: DrawController) {
+    if (!this.lineId || this.coordinates.length === 0) return;
+    draw.store.clearHandles(this.lineId);
+
+    const lastCoord = this.coordinates[this.coordinates.length - 1];
+    draw.store.createHandle(this.lineId, lastCoord);
   }
 
   private finishLine(draw: DrawController) {
     if (!this.lineId || this.coordinates.length < 2) return;
-
     this.updateLine(draw, this.coordinates, { active: false });
+    draw.store.clearHandles(this.lineId);
     this.reset(draw);
   }
 
-  private updateLine(draw: DrawController, coords: Position[], updatedProperties?: Partial<Record<string, unknown>>) {
-    draw.updateFeature(this.lineId, {
-      geometry: { type: "LineString", coordinates: coords },
-      properties: { ...(updatedProperties ?? {}), _vertices: coords },
-    });
-  }
-
-  private updateHandles(draw: DrawController) {
-    this.clearHandles(draw);
-
-    const points: Feature<Point>[] = [];
-    if (this.coordinates.length > 0) {
-      points.push(draw.createHandle(this.coordinates[this.coordinates.length - 1]));
-    }
-
-    draw.addFeatures(points);
-    this.handleIds = points.map((p) => p.id!);
-  }
-
-  private clearHandles(draw: DrawController) {
-    draw.removeFeatures(this.handleIds);
-    this.handleIds = [];
-  }
-
-  private createLineFeature(coords: Position[], id: string, active = false): Feature<LineString> {
-    return {
-      id,
-      type: "Feature",
-      geometry: { type: "LineString", coordinates: coords },
-      properties: { active, _vertices: coords },
-    };
-  }
-
   private reset(draw: DrawController) {
-    this.clearHandles(draw);
+    if (this.lineId) draw.store.clearHandles(this.lineId);
     this.coordinates = [];
     this.lineId = undefined;
   }

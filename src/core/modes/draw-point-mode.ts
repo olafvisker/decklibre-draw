@@ -1,7 +1,5 @@
 import type { DrawMode } from "../draw-mode";
 import type { DrawController, DrawInfo } from "../draw-controller";
-import type { Feature, Point } from "geojson";
-import { v4 as uuid } from "uuid";
 
 export class DrawPointMode implements DrawMode {
   onEnter(draw: DrawController) {
@@ -9,16 +7,7 @@ export class DrawPointMode implements DrawMode {
   }
 
   onClick(info: DrawInfo, draw: DrawController) {
-    const pointFeature = this.createPoint([info.lng, info.lat]);
-    draw.addFeature(pointFeature);
-  }
-
-  private createPoint(coord: [number, number]): Feature<Point> {
-    return {
-      id: uuid(),
-      type: "Feature",
-      geometry: { type: "Point", coordinates: coord },
-      properties: { active: false, _vertices: [coord] },
-    };
+    const pointFeature = draw.store.generateFeature("point", [[info.lng, info.lat]]);
+    if (pointFeature) draw.store.addFeature(pointFeature);
   }
 }

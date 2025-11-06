@@ -1,15 +1,23 @@
 import type { Feature, Position } from "geojson";
 import { DirectSelectMode } from "./direct-select-mode";
-import type { DrawController, DrawInfo } from "../draw-controller";
-import type { DrawMode } from "../draw-mode";
+import type { DrawController } from "../draw-controller";
+import type { DrawInfo, DrawMode } from "../draw-mode";
+
+interface SimpleSelectModeOptions {
+  activeFeatureId?: string | number;
+  dragWithoutSelect?: boolean;
+}
 
 export class SimpleSelectMode implements DrawMode {
   private _activeFeatureId?: string | number;
   private _dragging = false;
   private _dragStartCoord?: [number, number];
+  private _dragFeatureId?: string | number;
+  private _dragWithoutSelect: boolean;
 
-  constructor(activeFeatureId?: string | number) {
+  constructor({ activeFeatureId, dragWithoutSelect = false }: SimpleSelectModeOptions = {}) {
     this._activeFeatureId = activeFeatureId;
+    this._dragWithoutSelect = dragWithoutSelect;
   }
 
   onEnter(draw: DrawController) {
@@ -18,14 +26,15 @@ export class SimpleSelectMode implements DrawMode {
   }
 
   onExit(draw: DrawController) {
-    this.clearActive(draw);
+    this._dragging = false;
+    this._dragStartCoord = undefined;
+    this._dragFeatureId = undefined;
     draw.setDraggability(true);
   }
 
   onClick(info: DrawInfo, draw: DrawController) {
     const feature = info.feature as Feature | undefined;
-
-    if (!feature || !feature.id) {
+    if (!feature?.id) {
       this.clearActive(draw);
       return;
     }
@@ -33,121 +42,80 @@ export class SimpleSelectMode implements DrawMode {
     if (feature.id !== this._activeFeatureId) {
       this.setActive(draw, feature.id);
     } else {
-      draw.changeMode(new DirectSelectMode(feature.id));
+      draw.changeMode(new DirectSelectMode({ activeFeatureId: feature.id }));
     }
   }
 
   onMouseDown(info: DrawInfo, draw: DrawController) {
-    if (!this._activeFeatureId) return;
+    const featureId = info.feature?.id;
+    if (!featureId) return;
 
-    const feature = info.feature as Feature | undefined;
-    if (!feature || feature.id !== this._activeFeatureId) return;
-
-    this._dragging = true;
-    this._dragStartCoord = [info.lng, info.lat];
-    draw.setDraggability(false);
+    if (this._dragWithoutSelect || featureId === this._activeFeatureId) {
+      this._dragging = true;
+      this._dragFeatureId = featureId;
+      this._dragStartCoord = [info.lng, info.lat];
+      draw.setDraggability(false);
+    }
   }
 
   onMouseMove(info: DrawInfo, draw: DrawController) {
-    if (!this._dragging || !this._activeFeatureId || !this._dragStartCoord) return;
-    const [dx, dy] = [info.lng - this._dragStartCoord[0], info.lat - this._dragStartCoord[1]];
+    if (!this._dragging || !this._dragFeatureId || !this._dragStartCoord) return;
 
-    const feature = draw.features.find((f) => f.id === this._activeFeatureId);
+    const [dx, dy] = [info.lng - this._dragStartCoord[0], info.lat - this._dragStartCoord[1]];
+    const feature = draw.features.find((f) => f.id === this._dragFeatureId);
     if (feature) {
-      const updated = this.translateFeature(feature, dx, dy);
-      draw.updateFeature(this._activeFeatureId, updated);
+      draw.store.updateFeature(this._dragFeatureId, this.translateFeature(feature, dx, dy));
     }
+
     this._dragStartCoord = [info.lng, info.lat];
   }
 
   onMouseUp(_info: DrawInfo, draw: DrawController) {
     this._dragging = false;
     this._dragStartCoord = undefined;
+    this._dragFeatureId = undefined;
     draw.setDraggability(true);
   }
 
   private setActive(draw: DrawController, id: string | number | undefined) {
     this.clearActive(draw);
     this._activeFeatureId = id;
-    draw.updateFeature(id, { properties: { active: true } });
+    draw.store.updateFeature(id, { properties: { active: true } });
   }
 
   private clearActive(draw: DrawController) {
     this._activeFeatureId = undefined;
-    draw.features.forEach((f) => {
-      draw.updateFeature(f.id, { properties: { active: false } });
-    });
+    draw.features.forEach((f) => draw.store.updateFeature(f.id, { properties: { active: false } }));
   }
 
   private translateFeature(f: Feature, dx: number, dy: number): Feature {
-    const translatePair = (pair: Position): Position => {
-      const [lng, lat, ...rest] = pair;
-      return [lng + dx, lat + dy, ...rest];
-    };
+    if (!f.geometry) return f;
 
-    const translateCoords = (coords: Position | Position[] | Position[][] | Position[][][]): any => {
-      if (Array.isArray(coords[0])) {
-        return coords.map((c) => translateCoords(c));
-      }
-      return translatePair(coords as Position);
-    };
+    const translate = ([x, y, ...rest]: Position): Position => [x + dx, y + dy, ...rest];
+    const geom = f.geometry;
 
-    const geometry: Geometry = f.geometry;
-    const newGeometry: Geometry =
-      geometry && "coordinates" in geometry
-        ? {
-            ...geometry,
-            coordinates: translateCoords((geometry as any).coordinates),
-          }
-        : geometry;
-
-    // translate _vertices if present and looks like array of positions
-    const props = { ...(f.properties || {}) };
-    if (Array.isArray(props._vertices)) {
-      props._vertices = props._vertices.map((v: unknown) => {
-        if (Array.isArray(v) && typeof v[0] === "number" && typeof v[1] === "number") {
-          return translatePair(v as Position);
-        }
-        return v;
-      });
+    // 1️⃣ translate geometry
+    let newGeom: typeof geom;
+    switch (geom.type) {
+      case "Point":
+        newGeom = { ...geom, coordinates: translate(geom.coordinates) };
+        break;
+      case "LineString":
+        newGeom = { ...geom, coordinates: geom.coordinates.map(translate) };
+        break;
+      case "Polygon":
+        newGeom = { ...geom, coordinates: geom.coordinates.map((ring) => ring.map(translate)) };
+        break;
+      default:
+        return f;
     }
+
+    const newHandles = (f.properties?.handles as Position[]).map(([x, y]) => [x + dx, y + dy]);
 
     return {
       ...f,
-      geometry: newGeometry,
-      properties: props,
+      geometry: newGeom,
+      properties: { ...f.properties, handles: newHandles },
     };
   }
-
-  // private translateFeature(f: Feature, dx: number, dy: number): Feature {
-  //   switch (f.geometry.type) {
-  //     case "Point": {
-  //       const [lng, lat] = f.geometry.coordinates;
-  //       const coords = [lng + dx, lat + dy];
-  //       return {
-  //         ...f,
-  //         geometry: { ...f.geometry, coordinates: coords },
-  //         properties: { ...f.properties, _vertices: coords },
-  //       };
-  //     }
-  //     case "LineString": {
-  //       const coords = f.geometry.coordinates.map(([lng, lat]) => [lng + dx, lat + dy]);
-  //       return {
-  //         ...f,
-  //         geometry: { ...f.geometry, coordinates: coords },
-  //         properties: { ...f.properties, _vertices: coords },
-  //       };
-  //     }
-  //     case "Polygon": {
-  //       const coords = f.geometry.coordinates[0].map(([lng, lat]) => [lng + dx, lat + dy]);
-  //       return {
-  //         ...f,
-  //         geometry: { ...f.geometry, coordinates: [coords] },
-  //         properties: { ...f.properties, _vertices: coords },
-  //       };
-  //     }
-  //     default:
-  //       return f;
-  //   }
-  // }
 }

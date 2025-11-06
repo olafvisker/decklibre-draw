@@ -15,6 +15,7 @@ import { SimpleSelectMode } from "./core/modes/simple-select-mode";
 import { DirectSelectMode } from "./core/modes/direct-select-mode";
 import { DrawLineStringMode } from "./core/modes/draw-line-string-mode";
 import { DrawCircleMode } from "./core/modes/draw-circle-mode";
+import { DrawRectangleMode } from "./core/modes/draw-rectangle-mode";
 
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 const INITIAL_VIEW_STATE = {
@@ -25,7 +26,7 @@ const INITIAL_VIEW_STATE = {
   pitch: 0,
 };
 
-function Toolbar({ controller }: { controller: DrawController }) {
+function Toolbar({ controller }: { controller: DrawController | null }) {
   return (
     <div
       style={{
@@ -50,6 +51,7 @@ function Toolbar({ controller }: { controller: DrawController }) {
           <button onClick={() => controller.changeMode(new DrawLineStringMode())}>Draw Line</button>
           <button onClick={() => controller.changeMode(new DrawPolygonMode())}>Draw Polygon</button>
           <button onClick={() => controller.changeMode(new DrawCircleMode())}>Draw Circle</button>
+          <button onClick={() => controller.changeMode(new DrawRectangleMode())}>Draw Rectangle</button>
         </>
       )}
     </div>
