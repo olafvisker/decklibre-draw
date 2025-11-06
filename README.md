@@ -1,75 +1,29 @@
-# React + TypeScript + Vite
+# decklibre-draw
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**decklibre-draw** is a small WIP library for drawing and editing geometries on Deck.gl and MapLibre GL. Loosely inspired by mapbox-gl-draw, shapes are defined by **feature generators**, allowing you to create arbitrary geometries and control them via independent handles. This approach separates the editable points from the shape itself, giving you flexible editing beyond more common vertex-based libraries.
 
-Currently, two official plugins are available:
+- Draw and edit points, lines, polygons, and circles
+- Custom feature generators allow creating new types of geometries
+- Mode-based interactions for drawing, selecting, and direct editing
+- Designed for Deck.gl and MapLibre GL with potential support for other renderers in the future
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+> Very much work in progress. API and features will change
 
-## React Compiler
+### Example usage
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+```ts
+import maplibregl from "maplibre-gl";
+import { DrawController } from "./core/draw-controller";
+import { SimpleSelect } from "./core/modes/simple-select-mode";
+import { DrawCircleMode } from "./core/modes/draw-circle-mode";
+import { Deck, GeoJsonLayer } from "deck.gl";
 
-Note: This will impact Vite dev & build performances.
+const map = new maplibregl.Map();
+const deck = new Deck();
+const controller = new DrawController(deck, map, {
+  initialMode: new SimpleSelect(),
+  onUpdate: (features) => console.log("Updated features", features),
+});
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+controller.changeMode(new DrawLineStringMode());
 ```
