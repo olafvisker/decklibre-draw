@@ -3,6 +3,7 @@ import type { Feature } from "geojson";
 import type { DrawInfo, DrawMode } from "./draw-mode";
 import { DrawStore, type DrawStoreOptions } from "./draw-store";
 import { v4 as uuid } from "uuid";
+import { Map as MaplibreMap } from "maplibre-gl";
 
 export type CursorState = "default" | "grab" | "grabbing" | "crosshair" | "pointer" | "wait" | "move";
 
@@ -19,7 +20,7 @@ export interface DrawControllerOptions extends DrawStoreOptions {
 
 export class DrawController {
   private _deck: Deck;
-  private _map: maplibregl.Map;
+  private _map: MaplibreMap;
   private _mode?: DrawMode;
   private _store: DrawStore;
   private _layerIds: string[] = [];
@@ -69,7 +70,6 @@ export class DrawController {
         newMode = this._modeInstances.get(modeOrInstance) as M;
       } else {
         newMode = new modeOrInstance(options);
-        // Cache instance only if no options are passed
         this._modeInstances.set(modeOrInstance, newMode);
       }
     } else {
