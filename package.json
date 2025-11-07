@@ -11,6 +11,7 @@
   "types": "dist/types/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/decklibre-draw.js",
       "require": "./dist/decklibre-draw.cjs"
     }
