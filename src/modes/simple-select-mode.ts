@@ -1,7 +1,6 @@
 import type { Feature, Position } from "geojson";
 import { DirectSelectMode } from "./direct-select-mode";
-import type { DrawController } from "../draw-controller";
-import type { DrawInfo, DrawMode } from "../draw-mode";
+import { DrawController, DrawInfo, DrawMode } from "../core";
 
 interface SimpleSelectModeOptions {
   selectedId?: string | number;

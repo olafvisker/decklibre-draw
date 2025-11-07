@@ -7,15 +7,17 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useRef, useState } from "react";
 import type { Feature } from "geojson";
 
-import { DrawController } from "../../src/core/draw-controller";
-import { StaticMode } from "../../src/core/modes/static-mode";
-import { DrawPointMode } from "../../src/core/modes/draw-point-mode";
-import { DrawPolygonMode } from "../../src/core/modes/draw-polygon-mode";
-import { SimpleSelectMode } from "../../src/core/modes/simple-select-mode";
-import { DirectSelectMode } from "../../src/core/modes/direct-select-mode";
-import { DrawLineStringMode } from "../../src/core/modes/draw-line-string-mode";
-import { DrawCircleMode } from "../../src/core/modes/draw-circle-mode";
-import { DrawRectangleMode } from "../../src/core/modes/draw-rectangle-mode";
+import { DrawController } from "../../src/core";
+import {
+  DirectSelectMode,
+  DrawCircleMode,
+  DrawLineStringMode,
+  DrawPointMode,
+  DrawPolygonMode,
+  DrawRectangleMode,
+  SimpleSelectMode,
+  StaticMode,
+} from "../../src/modes";
 
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 const INITIAL_VIEW_STATE = {

@@ -12,8 +12,7 @@
   "exports": {
     ".": {
       "import": "./dist/decklibre-draw.js",
-      "require": "./dist/decklibre-draw.cjs",
-      "types": "./dist/types/index.d.ts"
+      "require": "./dist/decklibre-draw.cjs"
     }
   },
   "sideEffects": false,

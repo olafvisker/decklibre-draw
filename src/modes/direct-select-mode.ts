@@ -1,5 +1,4 @@
-import type { DrawInfo, DrawMode } from "../draw-mode";
-import type { DrawController } from "../draw-controller";
+import { DrawMode, DrawController, DrawInfo } from "../core";
 import type { Feature, Point, Position } from "geojson";
 import { toMercator, toWgs84, point } from "@turf/turf";
 import { SimpleSelectMode } from "./simple-select-mode";

@@ -10,7 +10,6 @@ export const PointShapeGenerator: ShapeGeneratorFn = (points) => {
     properties: {},
   } as Feature<Point>;
 };
-PointShapeGenerator.shapeName = "point";
 
 export const LineStringShapeGenerator: ShapeGeneratorFn = (points) => {
   return {

@@ -1,6 +1,5 @@
-import type { DrawInfo, DrawMode } from "../draw-mode";
-import type { DrawController } from "../draw-controller";
 import type { Position } from "geojson";
+import { DrawMode, DrawController, DrawInfo } from "../core";
 
 export class DrawRectangleMode implements DrawMode {
   private start?: Position;

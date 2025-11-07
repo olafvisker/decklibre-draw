@@ -1,6 +1,6 @@
 import type { Feature, Point, Position, GeoJsonProperties } from "geojson";
 import { v4 as uuid } from "uuid";
-import { DefaultShapeGenerators, type ShapeGeneratorFn } from "./shape-generators";
+import { DefaultShapeGenerators, type ShapeGeneratorFn } from "../generators/generators";
 
 export interface GenerateFeatureOptions<P extends GeoJsonProperties = GeoJsonProperties> {
   id?: string | number;

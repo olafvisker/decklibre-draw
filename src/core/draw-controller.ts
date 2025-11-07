@@ -1,6 +1,6 @@
 import type { Deck } from "@deck.gl/core";
 import type { Feature } from "geojson";
-import type { DrawInfo, DrawMode } from "./draw-mode";
+import type { DrawInfo, DrawMode, DrawModeConstructor } from "./draw-mode";
 import { DrawStore, type DrawStoreOptions } from "./draw-store";
 import { v4 as uuid } from "uuid";
 import { Map as MaplibreMap } from "maplibre-gl";
@@ -58,10 +58,7 @@ export class DrawController {
   }
 
   /** Mode handling */
-  public changeMode<M extends DrawMode, O extends ConstructorParameters<new (options?: unknown) => M>[0]>(
-    modeOrInstance: (new (options?: O) => M) | M,
-    options?: O
-  ) {
+  public changeMode<M extends DrawMode, O>(modeOrInstance: DrawModeConstructor<M, O> | M, options?: O) {
     let newMode: M;
 
     if (typeof modeOrInstance === "function") {
