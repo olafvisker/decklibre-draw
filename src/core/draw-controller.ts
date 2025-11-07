@@ -23,7 +23,7 @@ export class DrawController {
   private _map: MaplibreMap;
   private _mode?: DrawMode;
   private _store: DrawStore;
-  private _layerIds: string[] = [];
+  private _layerIds?: string[];
   private _panning = false;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   private _modeInstances = new Map<Function, DrawMode>();
@@ -37,7 +37,7 @@ export class DrawController {
       onUpdate: options?.onUpdate,
     });
 
-    this._layerIds = options?.layerIds ?? [];
+    this._layerIds = options?.layerIds;
     if (options?.initialMode) this.changeMode(options.initialMode);
 
     this._bindEvents();
