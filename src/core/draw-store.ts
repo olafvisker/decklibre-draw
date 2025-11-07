@@ -10,55 +10,70 @@ export interface GenerateFeatureOptions<P extends GeoJsonProperties = GeoJsonPro
 export interface DrawStoreOptions {
   features?: Feature[];
   shapeGenerators?: Record<string, ShapeGeneratorFn>;
-  onUpdate?: (features: Feature[]) => void;
+  onUpdate?: (features: Feature[], selectedIds: (string | number)[]) => void;
 }
 
 export class DrawStore {
-  private _features: Feature[] = [];
+  private _featureMap: Map<string | number, Feature> = new Map();
+  private _selectedIds = new Set<string | number>();
   private _handles: Map<string | number, Feature<Point>[]> = new Map();
   private _shapeGenerator: Record<string, ShapeGeneratorFn> = {};
-
-  private _onUpdate?: (features: Feature[]) => void;
+  private _onUpdate?: (features: Feature[], selectedIds: (string | number)[]) => void;
 
   constructor(options?: DrawStoreOptions) {
-    this._features = options?.features ?? [];
     this._shapeGenerator = { ...DefaultShapeGenerators, ...options?.shapeGenerators };
     this._onUpdate = options?.onUpdate;
+
+    if (options?.features) {
+      for (const f of options.features) {
+        if (f.id !== undefined) this._featureMap.set(f.id, f);
+      }
+    }
   }
 
   // --- Feature Management ---
-  public get features() {
-    return this._features;
+  public get features(): Feature[] {
+    return Array.from(this._featureMap.values());
+  }
+
+  public getFeature(id: string | number | undefined) {
+    if (!id) return;
+    return this._featureMap.get(id);
   }
 
   public addFeature(feature: Feature) {
-    this._features = [...this._features, feature];
-    this._emitUpdate();
+    this.addFeatures([feature]);
   }
 
   public addFeatures(features: Feature[]) {
-    this._features = [...this._features, ...features];
+    for (const f of features) {
+      if (f.id !== undefined) this._featureMap.set(f.id, f);
+    }
     this._emitUpdate();
   }
 
   public removeFeature(id: string | number | undefined) {
-    if (!id) return;
-    this._features = this._features.filter((f) => f.id !== id);
-    this.clearHandles(id);
-    this._emitUpdate();
+    return this.removeFeatures([id]);
   }
 
   public removeFeatures(ids: (string | number | undefined)[]) {
     if (!ids.length) return;
-    this._features = this._features.filter((f) => !ids.includes(f.id));
-    ids.forEach((id) => this.clearHandles(id));
+    ids.forEach((id) => {
+      if (id !== undefined) this._featureMap.delete(id);
+      this.clearHandles(id);
+    });
     this._emitUpdate();
   }
 
   public updateFeature(id: string | number | undefined, updates: Partial<Feature>) {
-    this._features = this._features.map((f) =>
-      f.id === id ? { ...f, ...updates, properties: { ...f.properties, ...updates.properties } } : f
-    );
+    if (!id) return;
+    const feature = this._featureMap.get(id);
+    if (!feature) return;
+
+    Object.assign(feature, updates);
+    if (updates.properties) {
+      feature.properties = { ...feature.properties, ...updates.properties };
+    }
     this._emitUpdate();
   }
 
@@ -108,8 +123,51 @@ export class DrawStore {
     return feature;
   }
 
+  // --- Selection Management ---
+  public get selectedIds(): (string | number)[] {
+    return Array.from(this._selectedIds);
+  }
+
+  public isSelected(id: string | number): boolean {
+    return this._selectedIds.has(id);
+  }
+
+  public setSelected(id: string | number | undefined) {
+    this._selectedIds.clear();
+    if (id !== undefined) this._selectedIds.add(id);
+    this._syncSelectionState();
+  }
+
+  public clearSelection() {
+    this._selectedIds.clear();
+    this._syncSelectionState();
+  }
+
+  private _syncSelectionState() {
+    let changed = false;
+
+    // Update selected features
+    this._selectedIds.forEach((id) => {
+      const feature = this._featureMap.get(id);
+      if (feature && feature.properties?.selected !== true) {
+        feature.properties = { ...feature.properties, selected: true };
+        changed = true;
+      }
+    });
+
+    // Update unselected features
+    for (const feature of this._featureMap.values()) {
+      if (feature.id && !this._selectedIds.has(feature.id) && feature.properties?.selected) {
+        feature.properties = { ...feature.properties, selected: false };
+        changed = true;
+      }
+    }
+
+    if (changed) this._emitUpdate();
+  }
+
   // --- Internal ---
   private _emitUpdate() {
-    this._onUpdate?.(this._features);
+    this._onUpdate?.(this.features, this.selectedIds);
   }
 }

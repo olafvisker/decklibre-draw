@@ -4,25 +4,25 @@ import type { DrawController } from "../draw-controller";
 import type { DrawInfo, DrawMode } from "../draw-mode";
 
 interface SimpleSelectModeOptions {
-  activeFeatureId?: string | number;
+  selectedId?: string | number;
   dragWithoutSelect?: boolean;
 }
 
 export class SimpleSelectMode implements DrawMode {
-  private _activeFeatureId?: string | number;
+  private _startSelectedId: string | number | undefined;
   private _dragging = false;
+  private _dragWithoutSelect = false;
   private _dragStartCoord?: [number, number];
   private _dragFeatureId?: string | number;
-  private _dragWithoutSelect: boolean;
 
-  constructor({ activeFeatureId, dragWithoutSelect = false }: SimpleSelectModeOptions = {}) {
-    this._activeFeatureId = activeFeatureId;
-    this._dragWithoutSelect = dragWithoutSelect;
+  constructor({ selectedId, dragWithoutSelect }: SimpleSelectModeOptions = {}) {
+    if (dragWithoutSelect) this._dragWithoutSelect = dragWithoutSelect;
+    this._startSelectedId = selectedId;
   }
 
   onEnter(draw: DrawController) {
     draw.setCursor({ default: "default", hover: "pointer" });
-    this.setActive(draw, this._activeFeatureId);
+    if (this._startSelectedId) draw.store.setSelected(this._startSelectedId);
   }
 
   onExit(draw: DrawController) {
@@ -35,14 +35,15 @@ export class SimpleSelectMode implements DrawMode {
   onClick(info: DrawInfo, draw: DrawController) {
     const feature = info.feature as Feature | undefined;
     if (!feature?.id) {
-      this.clearActive(draw);
+      draw.store.clearSelection();
       return;
     }
 
-    if (feature.id !== this._activeFeatureId) {
-      this.setActive(draw, feature.id);
+    if (draw.store.isSelected(feature.id)) {
+      draw.changeMode(DirectSelectMode);
+      draw.store.setSelected(feature.id);
     } else {
-      draw.changeMode(new DirectSelectMode({ activeFeatureId: feature.id }));
+      draw.store.setSelected(feature.id);
     }
   }
 
@@ -50,7 +51,7 @@ export class SimpleSelectMode implements DrawMode {
     const featureId = info.feature?.id;
     if (!featureId) return;
 
-    if (this._dragWithoutSelect || featureId === this._activeFeatureId) {
+    if (this._dragWithoutSelect || draw.store.isSelected(featureId)) {
       this._dragging = true;
       this._dragFeatureId = featureId;
       this._dragStartCoord = [info.lng, info.lat];
@@ -62,7 +63,7 @@ export class SimpleSelectMode implements DrawMode {
     if (!this._dragging || !this._dragFeatureId || !this._dragStartCoord) return;
 
     const [dx, dy] = [info.lng - this._dragStartCoord[0], info.lat - this._dragStartCoord[1]];
-    const feature = draw.features.find((f) => f.id === this._dragFeatureId);
+    const feature = draw.store.getFeature(this._dragFeatureId);
     if (feature) {
       draw.store.updateFeature(this._dragFeatureId, this.translateFeature(feature, dx, dy));
     }
@@ -77,24 +78,12 @@ export class SimpleSelectMode implements DrawMode {
     draw.setDraggability(true);
   }
 
-  private setActive(draw: DrawController, id: string | number | undefined) {
-    this.clearActive(draw);
-    this._activeFeatureId = id;
-    draw.store.updateFeature(id, { properties: { active: true } });
-  }
-
-  private clearActive(draw: DrawController) {
-    this._activeFeatureId = undefined;
-    draw.features.forEach((f) => draw.store.updateFeature(f.id, { properties: { active: false } }));
-  }
-
   private translateFeature(f: Feature, dx: number, dy: number): Feature {
     if (!f.geometry) return f;
 
     const translate = ([x, y, ...rest]: Position): Position => [x + dx, y + dy, ...rest];
     const geom = f.geometry;
 
-    // 1️⃣ translate geometry
     let newGeom: typeof geom;
     switch (geom.type) {
       case "Point":

@@ -5,24 +5,28 @@ import { toMercator, toWgs84, point } from "@turf/turf";
 import { SimpleSelectMode } from "./simple-select-mode";
 
 interface DirectSelectModeOptions {
-  activeFeatureId?: string | number;
+  selectedId?: string | number;
+  dragWithoutSelect?: boolean;
 }
 
 export class DirectSelectMode implements DrawMode {
-  private _activeFeatureId?: string | number;
+  private _startSelectedId?: string | number;
   private _dragging = false;
   private _dragType: "feature" | "handle" | null = null;
   private _dragStartCoord?: Position;
+  private _dragWithoutSelect = false;
+  private _dragFeatureId?: string | number;
   private _dragHandleIndex?: number;
 
-  constructor({ activeFeatureId }: DirectSelectModeOptions = {}) {
-    this._activeFeatureId = activeFeatureId;
+  constructor({ selectedId, dragWithoutSelect }: DirectSelectModeOptions = {}) {
+    this._startSelectedId = selectedId;
+    if (dragWithoutSelect) this._dragWithoutSelect = dragWithoutSelect;
   }
 
-  // === Lifecycle ===
   onEnter(draw: DrawController) {
     draw.setCursor({ default: "default", hover: "pointer" });
-    this.setActive(draw, this._activeFeatureId);
+    if (this._startSelectedId) draw.store.setSelected(this._startSelectedId);
+    this.createHandles(draw);
   }
 
   onExit(draw: DrawController) {
@@ -30,32 +34,48 @@ export class DirectSelectMode implements DrawMode {
     this.resetDragState();
   }
 
-  // === Click & Drag ===
   onClick(info: DrawInfo, draw: DrawController) {
     const f = info.feature;
-    if (!f) return this.deselectAll(draw);
+    if (!f || !f.id) return this.deselectAll(draw);
 
     const { handle, midpoint, insertIndex } = f.properties || {};
-    if (handle) return; // handled via drag
+    if (handle) return;
 
-    if (midpoint && this._activeFeatureId !== undefined) {
+    if (midpoint) {
+      const selected = this.getSelectedFeature(draw);
+      if (!selected) return;
       this.insertVertex(draw, insertIndex, [info.lng, info.lat]);
       this.createHandles(draw);
       return;
     }
 
-    if (f.id !== this._activeFeatureId) {
-      draw.changeMode(new SimpleSelectMode({ activeFeatureId: f.id }));
+    if (!draw.store.isSelected(f.id)) {
+      draw.changeMode(SimpleSelectMode);
+      draw.store.setSelected(f.id);
     }
   }
 
   onMouseDown(info: DrawInfo, draw: DrawController) {
     const f = info.feature;
-    if (!f) return draw.setDoubleClickZoom(true);
+    if (!f || !f.id) return draw.setDoubleClickZoom(true);
 
     const { handle, midpoint, _handleIndex, insertIndex } = f.properties || {};
 
-    if (midpoint && this._activeFeatureId !== undefined) {
+    if (this._dragWithoutSelect || draw.store.isSelected(f.id)) {
+      if (!handle && !midpoint) {
+        this._dragging = true;
+        this._dragFeatureId = f.id;
+        this._dragType = "feature";
+        this._dragStartCoord = [info.lng, info.lat];
+        draw.setDraggability(false);
+        draw.setDoubleClickZoom(false);
+        return;
+      }
+    }
+
+    if (midpoint) {
+      const selected = this.getSelectedFeature(draw);
+      if (!selected) return;
       this.insertVertex(draw, insertIndex, [info.lng, info.lat]);
       this.startDrag("handle", info, insertIndex + 1, draw);
       this.createHandles(draw);
@@ -63,34 +83,40 @@ export class DirectSelectMode implements DrawMode {
     }
 
     if (handle) return this.startDrag("handle", info, _handleIndex, draw);
-    if (f.id === this._activeFeatureId) this.startDrag("feature", info, undefined, draw);
+    if (draw.store.isSelected(f.id)) this.startDrag("feature", info, undefined, draw);
   }
 
   onMouseMove(info: DrawInfo, draw: DrawController) {
-    if (!this._dragging || !this._activeFeatureId || !this._dragStartCoord) return;
+    if (this._dragging && this._dragFeatureId && this._dragStartCoord && this._dragType === "feature") {
+      const feature = draw.store.getFeature(this._dragFeatureId);
+      if (!feature) return;
+
+      const [dx, dy] = [info.lng - this._dragStartCoord[0], info.lat - this._dragStartCoord[1]];
+      const updated = this.translateFeature(feature, dx, dy, draw);
+      draw.store.updateFeature(feature.id, updated);
+
+      this._dragStartCoord = [info.lng, info.lat];
+      this.createHandles(draw);
+      return;
+    }
+
+    // Original handle drag logic
+    const selected = this.getSelectedFeature(draw);
+    if (!this._dragging || !selected || !this._dragStartCoord) return;
 
     const [dx, dy] = [info.lng - this._dragStartCoord[0], info.lat - this._dragStartCoord[1]];
     this._dragStartCoord = [info.lng, info.lat];
 
-    const feature = draw.features.find((f) => f.id === this._activeFeatureId);
-    if (!feature) return;
-
-    let updated: Feature;
-
-    if (this._dragType === "feature") {
-      updated = this.translateFeature(feature, dx, dy, draw);
-    } else if (this._dragType === "handle" && typeof this._dragHandleIndex === "number") {
-      updated = this.moveVertex(feature, this._dragHandleIndex, dx, dy, draw);
-    } else {
-      return;
+    if (this._dragType === "handle" && typeof this._dragHandleIndex === "number") {
+      const updated = this.moveVertex(selected, this._dragHandleIndex, dx, dy, draw);
+      draw.store.updateFeature(selected.id, updated);
+      this.createHandles(draw);
     }
-
-    draw.store.updateFeature(feature.id, updated);
-    this.createHandles(draw);
   }
 
   onMouseUp(info: DrawInfo, draw: DrawController) {
     this.resetDragState();
+    this._dragFeatureId = undefined;
     draw.setDraggability(true);
 
     if (!info.feature || (!info.feature.properties?.handle && !info.feature.properties?.midpoint)) {
@@ -129,36 +155,39 @@ export class DirectSelectMode implements DrawMode {
   }
 
   private insertVertex(draw: DrawController, index: number, coord: Position) {
-    const feature = draw.features.find((f) => f.id === this._activeFeatureId);
-    if (!feature) return;
+    const selected = this.getSelectedFeature(draw);
+    if (!selected) return;
 
-    const handles = feature.properties?.handles || [];
+    const handles = selected.properties?.handles || [];
     const updatedHandles = [...handles];
     updatedHandles.splice(index + 1, 0, coord);
 
-    const updated = this.regenerateFeature(draw, feature, updatedHandles);
-    draw.store.updateFeature(feature.id, updated);
+    const updated = this.regenerateFeature(draw, selected, updatedHandles);
+    draw.store.updateFeature(selected.id, updated);
   }
 
   // === Handle Management ===
   private createHandles(draw: DrawController) {
-    if (!this._activeFeatureId) return;
-    draw.store.clearHandles(this._activeFeatureId);
+    const selected = this.getSelectedFeature(draw);
+    if (!selected) return;
+    draw.store.clearHandles(selected.id);
 
-    const feature = draw.features.find((f) => f.id === this._activeFeatureId);
-    if (!feature) return;
+    const coords: Position[] = selected.properties?.handles || [];
+    coords.map((c, i) => draw.store.createHandle(selected.id!, c, i));
 
-    const coords: Position[] = feature.properties?.handles || [];
-    coords.map((c, i) => draw.store.createHandle(this._activeFeatureId!, c, i));
-    if (feature.properties?.insertable !== false) this.makeMidpoints(coords, feature.geometry.type === "Polygon", draw);
+    if (selected.properties?.insertable !== false) {
+      this.makeMidpoints(coords, selected.geometry.type === "Polygon", draw);
+    }
   }
 
-  private makeMidpoints(coords: Position[], isPolygon: boolean, draw: DrawController): Feature<Point>[] {
-    const midpoints: Feature<Point>[] = [];
-    for (let i = 0; i < coords.length - 1; i++) midpoints.push(this.makeMidpoint(coords[i], coords[i + 1], i, draw));
-    if (isPolygon && coords.length > 2)
-      midpoints.push(this.makeMidpoint(coords[coords.length - 1], coords[0], coords.length - 1, draw));
-    return midpoints;
+  private makeMidpoints(coords: Position[], isPolygon: boolean, draw: DrawController) {
+    for (let i = 0; i < coords.length - 1; i++) {
+      this.makeMidpoint(coords[i], coords[i + 1], i, draw);
+    }
+
+    if (isPolygon && coords.length > 2) {
+      this.makeMidpoint(coords[coords.length - 1], coords[0], coords.length - 1, draw);
+    }
   }
 
   private makeMidpoint(a: Position, b: Position, i: number, draw: DrawController): Feature<Point> {
@@ -166,24 +195,22 @@ export class DirectSelectMode implements DrawMode {
     const mb = toMercator(point(b)).geometry.coordinates;
     const mid = toWgs84(point([(ma[0] + mb[0]) / 2, (ma[1] + mb[1]) / 2])).geometry.coordinates;
 
-    const handle = draw.store.createHandle(this._activeFeatureId!, mid);
+    const handle = draw.store.createHandle(this.getSelectedFeature(draw)!.id!, mid);
     handle.properties = { ...handle.properties, midpoint: true, insertIndex: i };
     return handle;
   }
 
   // === Selection ===
   private deselectAll(draw: DrawController) {
-    if (this._activeFeatureId) draw.store.clearHandles(this._activeFeatureId);
-    this._activeFeatureId = undefined;
-    draw.features.forEach((f) => draw.store.updateFeature(f.id, { properties: { ...f.properties, active: false } }));
+    const selected = this.getSelectedFeature(draw);
+    if (selected) draw.store.clearHandles(selected.id);
+    draw.store.clearSelection();
   }
 
-  private setActive(draw: DrawController, id: string | number | undefined) {
-    this._activeFeatureId = id;
-    draw.features.forEach((f) =>
-      draw.store.updateFeature(f.id, { properties: { ...f.properties, active: f.id === id } })
-    );
-    this.createHandles(draw);
+  private getSelectedFeature(draw: DrawController): Feature | undefined {
+    const id = draw.store.selectedIds[0];
+    if (!id) return;
+    return draw.store.getFeature(id);
   }
 
   // === Core helper ===

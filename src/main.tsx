@@ -30,10 +30,6 @@ function Toolbar({ controller }: { controller: DrawController | null }) {
   return (
     <div
       style={{
-        position: "absolute",
-        top: 10,
-        right: 10,
-        zIndex: 10,
         background: "rgba(255,255,255,0.9)",
         padding: 8,
         borderRadius: 4,
@@ -42,18 +38,14 @@ function Toolbar({ controller }: { controller: DrawController | null }) {
         flexDirection: "column",
         gap: 4,
       }}>
-      {controller && (
-        <>
-          <button onClick={() => controller.changeMode(new StaticMode())}>Static</button>
-          <button onClick={() => controller.changeMode(new SimpleSelectMode())}>Select</button>
-          <button onClick={() => controller.changeMode(new DirectSelectMode())}>Direct</button>
-          <button onClick={() => controller.changeMode(new DrawPointMode())}>Draw Point</button>
-          <button onClick={() => controller.changeMode(new DrawLineStringMode())}>Draw Line</button>
-          <button onClick={() => controller.changeMode(new DrawPolygonMode())}>Draw Polygon</button>
-          <button onClick={() => controller.changeMode(new DrawCircleMode())}>Draw Circle</button>
-          <button onClick={() => controller.changeMode(new DrawRectangleMode())}>Draw Rectangle</button>
-        </>
-      )}
+      <button onClick={() => controller?.changeMode(StaticMode)}>Static</button>
+      <button onClick={() => controller?.changeMode(SimpleSelectMode, { dragWithoutSelect: true })}>Select</button>
+      <button onClick={() => controller?.changeMode(DirectSelectMode)}>Direct</button>
+      <button onClick={() => controller?.changeMode(DrawPointMode)}>Draw Point</button>
+      <button onClick={() => controller?.changeMode(DrawLineStringMode)}>Draw Line</button>
+      <button onClick={() => controller?.changeMode(DrawPolygonMode)}>Draw Polygon</button>
+      <button onClick={() => controller?.changeMode(DrawCircleMode)}>Draw Circle</button>
+      <button onClick={() => controller?.changeMode(DrawRectangleMode)}>Draw Rectangle</button>
     </div>
   );
 }
@@ -73,15 +65,18 @@ function DeckGLOverlay({ onReady, ...props }: DeckGLOverlayProps) {
 }
 
 function Root() {
-  const [features, setFeatures] = useState<Feature[]>([]);
   const controllerRef = useRef<DrawController>(null);
+  const [features, setFeatures] = useState<Feature[]>([]);
+  const [ready, setReady] = useState(false);
 
   const handleLoad = (deck: Deck, map: maplibregl.Map) => {
     controllerRef.current = new DrawController(deck, map, {
-      initialMode: new StaticMode(),
-      features,
+      initialMode: StaticMode,
+      layerIds: ["geojson-layer"],
       onUpdate: setFeatures,
     });
+
+    setReady(true);
   };
 
   const layers: LayersList = [
@@ -99,11 +94,11 @@ function Root() {
         }
         let opacity = 25;
         if (f.geometry.type === "Point") opacity = 255;
-        return f.properties?.active ? [251, 176, 59, opacity] : [59, 178, 208, opacity]; // default semi-transparent
+        return f.properties?.selected ? [251, 176, 59, opacity] : [59, 178, 208, opacity]; // default semi-transparent
       },
       getLineColor: (f: Feature) => {
         if (f.geometry.type === "Point" || f.properties?.handle) return [255, 255, 255, 255];
-        return f.properties?.active ? [251, 176, 59, 255] : [59, 178, 208, 255];
+        return f.properties?.selected ? [251, 176, 59, 255] : [59, 178, 208, 255];
       },
       getLineWidth: (f) => (f.properties?.midpoint ? 0 : 2),
       getPointRadius: (f) => (f.properties?.midpoint ? 3 : 4),
@@ -131,8 +126,12 @@ function Root() {
         // views={new _GlobeView()}
       />
       <NavigationControl position="top-left" />
-      <Toolbar controller={controllerRef.current} />
-      {/* <div style={{ position: "absolute", zIndex: 10 }}>{JSON.stringify(features)}</div> */}
+      {ready && (
+        <div style={{ position: "absolute", zIndex: 10, right: 0 }}>
+          <Toolbar controller={controllerRef.current} />
+        </div>
+      )}
+      {/* <div style={{ position: "absolute", zIndex: 10, bottom: 0 }}>{JSON.stringify(features)}</div> */}
     </Map>
   );
 }

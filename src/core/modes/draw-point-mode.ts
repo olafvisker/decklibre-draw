@@ -1,5 +1,5 @@
-import type { DrawMode } from "../draw-mode";
-import type { DrawController, DrawInfo } from "../draw-controller";
+import type { DrawInfo, DrawMode } from "../draw-mode";
+import type { DrawController } from "../draw-controller";
 
 export class DrawPointMode implements DrawMode {
   onEnter(draw: DrawController) {

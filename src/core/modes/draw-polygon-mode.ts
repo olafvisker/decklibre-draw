@@ -29,7 +29,7 @@ export class DrawPolygonMode implements DrawMode {
 
     if (!this.polygonId) {
       const polygonFeature = draw.store.generateFeature("polygon", this.coordinates, {
-        props: { active: true },
+        props: { selected: true },
       });
       if (!polygonFeature) return;
 
@@ -38,7 +38,7 @@ export class DrawPolygonMode implements DrawMode {
 
       if (this.polygonId) draw.store.createHandle(this.polygonId, coord);
     } else {
-      this.updatePolygon(draw, this.coordinates, { active: true });
+      this.updatePolygon(draw, this.coordinates, { selected: true });
       this.updateHandles(draw);
     }
   }
@@ -50,7 +50,7 @@ export class DrawPolygonMode implements DrawMode {
   onMouseMove(info: DrawInfo, draw: DrawController) {
     if (!this.polygonId || this.coordinates.length === 0) return;
     const previewCoords = [...this.coordinates, [info.lng, info.lat]];
-    this.updatePolygon(draw, previewCoords, { active: true });
+    this.updatePolygon(draw, previewCoords, { selected: true });
   }
 
   private updatePolygon(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
@@ -78,7 +78,7 @@ export class DrawPolygonMode implements DrawMode {
   private finishPolygon(draw: DrawController) {
     if (!this.polygonId || this.coordinates.length < 3) return;
 
-    this.updatePolygon(draw, this.coordinates, { active: false });
+    this.updatePolygon(draw, this.coordinates, { selected: false });
     draw.store.clearHandles(this.polygonId);
     this.reset(draw);
   }

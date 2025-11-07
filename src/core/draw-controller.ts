@@ -2,6 +2,7 @@ import type { Deck } from "@deck.gl/core";
 import type { Feature } from "geojson";
 import type { DrawInfo, DrawMode } from "./draw-mode";
 import { DrawStore, type DrawStoreOptions } from "./draw-store";
+import { v4 as uuid } from "uuid";
 
 export type CursorState = "default" | "grab" | "grabbing" | "crosshair" | "pointer" | "wait" | "move";
 
@@ -12,7 +13,8 @@ export interface CursorOptions {
 }
 
 export interface DrawControllerOptions extends DrawStoreOptions {
-  initialMode?: DrawMode;
+  initialMode?: DrawMode | (new (options?: unknown) => DrawMode);
+  layerIds?: string[];
 }
 
 export class DrawController {
@@ -20,7 +22,10 @@ export class DrawController {
   private _map: maplibregl.Map;
   private _mode?: DrawMode;
   private _store: DrawStore;
+  private _layerIds: string[] = [];
   private _panning = false;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  private _modeInstances = new Map<Function, DrawMode>();
 
   constructor(deck: Deck, map: maplibregl.Map, options?: DrawControllerOptions) {
     this._deck = deck;
@@ -31,9 +36,9 @@ export class DrawController {
       onUpdate: options?.onUpdate,
     });
 
+    this._layerIds = options?.layerIds ?? [];
     if (options?.initialMode) this.changeMode(options.initialMode);
 
-    this._warmUp();
     this._bindEvents();
   }
 
@@ -52,7 +57,28 @@ export class DrawController {
   }
 
   /** Mode handling */
-  public changeMode(newMode: DrawMode) {
+  public changeMode<M extends DrawMode, O extends ConstructorParameters<new (options?: unknown) => M>[0]>(
+    modeOrInstance: (new (options?: O) => M) | M,
+    options?: O
+  ) {
+    let newMode: M;
+
+    if (typeof modeOrInstance === "function") {
+      // Reuse existing instance if no options provided
+      if (!options && this._modeInstances.has(modeOrInstance)) {
+        newMode = this._modeInstances.get(modeOrInstance) as M;
+      } else {
+        newMode = new modeOrInstance(options);
+        // Cache instance only if no options are passed
+        this._modeInstances.set(modeOrInstance, newMode);
+      }
+    } else {
+      if (options !== undefined) {
+        throw new Error("Cannot pass options when passing an instance.");
+      }
+      newMode = modeOrInstance;
+    }
+
     this._mode?.onExit?.(this);
     this._reset();
     this._mode = newMode;
@@ -96,12 +122,43 @@ export class DrawController {
     this.setCursor("default");
   }
 
+  /** Event binding */
+  private _bindEvents() {
+    this._map.on("load", this._warmUp);
+    this._map.on("dragstart", this._onPanStart);
+    this._map.on("drag", this._onPanning);
+    this._map.on("dragend", this._onPanEnd);
+    this._map.on("mousedown", this._onMouseDown);
+    this._map.on("mousemove", this._onMouseMove);
+    this._map.on("mouseup", this._onMouseUp);
+    this._map.on("click", this._onClick);
+    this._map.on("dblclick", this._onDoubleClick);
+  }
+
+  private _unbindEvents() {
+    this._map.off("load", this._warmUp);
+    this._map.off("dragstart", this._onPanStart);
+    this._map.off("drag", this._onPanning);
+    this._map.off("dragend", this._onPanEnd);
+    this._map.off("mousedown", this._onMouseDown);
+    this._map.off("mousemove", this._onMouseMove);
+    this._map.off("mouseup", this._onMouseUp);
+    this._map.off("click", this._onClick);
+    this._map.off("dblclick", this._onDoubleClick);
+  }
+
+  /** Event handlers */
   /** Warm up deck.gl to avoid lazy init issues */
-  private _warmUp() {
-    const prev = this._store.features;
-    this._store.addFeatures([
-      { type: "Feature", geometry: { type: "Point", coordinates: [0, 0] }, properties: {} },
+  private _warmUp = () => {
+    const tempFeatures: Feature[] = [
       {
+        id: uuid(),
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [0, 0] },
+        properties: {},
+      },
+      {
+        id: uuid(),
         type: "Feature",
         geometry: {
           type: "LineString",
@@ -113,6 +170,7 @@ export class DrawController {
         properties: {},
       },
       {
+        id: uuid(),
         type: "Feature",
         geometry: {
           type: "Polygon",
@@ -127,37 +185,13 @@ export class DrawController {
         },
         properties: {},
       },
-    ]);
-
+    ];
+    this._store.addFeatures(tempFeatures);
     requestAnimationFrame(() => {
-      this._store.removeFeatures(this._store.features.filter((f) => !prev.includes(f)).map((f) => f.id));
+      this._store.removeFeatures(tempFeatures.map((f) => f.id));
     });
-  }
+  };
 
-  /** Event binding */
-  private _bindEvents() {
-    this._map.on("dragstart", this._onPanStart);
-    this._map.on("drag", this._onPanning);
-    this._map.on("dragend", this._onPanEnd);
-    this._map.on("mousedown", this._onMouseDown);
-    this._map.on("mousemove", this._onMouseMove);
-    this._map.on("mouseup", this._onMouseUp);
-    this._map.on("click", this._onClick);
-    this._map.on("dblclick", this._onDoubleClick);
-  }
-
-  private _unbindEvents() {
-    this._map.off("dragstart", this._onPanStart);
-    this._map.off("drag", this._onPanning);
-    this._map.off("dragend", this._onPanEnd);
-    this._map.off("mousedown", this._onMouseDown);
-    this._map.off("mousemove", this._onMouseMove);
-    this._map.off("mouseup", this._onMouseUp);
-    this._map.off("click", this._onClick);
-    this._map.off("dblclick", this._onDoubleClick);
-  }
-
-  /** Event handlers */
   private _onMouseDown = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) =>
     this._mode?.onMouseDown?.(this._buildInfo(e), this);
 
@@ -185,7 +219,7 @@ export class DrawController {
   private _buildInfo(event: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent): DrawInfo {
     const { x, y } = event.point;
     const { lng, lat } = event.lngLat;
-    const picked = this._deck.pickObject({ x, y, radius: this._deck.props.pickingRadius });
+    const picked = this._deck.pickObject({ x, y, layerIds: this._layerIds, radius: this._deck.props.pickingRadius });
     return {
       x,
       y,

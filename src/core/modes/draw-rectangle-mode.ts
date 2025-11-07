@@ -20,7 +20,7 @@ export class DrawRectangleMode implements DrawMode {
     if (!this.start) {
       this.start = [info.lng, info.lat];
       const rectFeature = draw.store.generateFeature("rect", [this.start, this.start], {
-        props: { active: true, insertable: false },
+        props: this.withDefaultProps({ selected: true }),
       });
       if (!rectFeature) return;
 
@@ -33,7 +33,7 @@ export class DrawRectangleMode implements DrawMode {
 
     if (this.start && this.rectId) {
       const end: Position = [info.lng, info.lat];
-      this.updateRect(draw, this.start, end, { active: false });
+      this.updateRect(draw, this.start, end, { selected: false });
       this.reset(draw);
     }
   }
@@ -41,7 +41,7 @@ export class DrawRectangleMode implements DrawMode {
   onMouseMove(info: DrawInfo, draw: DrawController) {
     if (!this.start || !this.rectId) return;
     const end: Position = [info.lng, info.lat];
-    this.updateRect(draw, this.start, end, { active: true });
+    this.updateRect(draw, this.start, end, { selected: true });
   }
 
   private updateRect(
@@ -54,7 +54,7 @@ export class DrawRectangleMode implements DrawMode {
 
     const rectFeature = draw.store.generateFeature("rect", [start, end], {
       id: this.rectId,
-      props: updatedProperties,
+      props: this.withDefaultProps(updatedProperties),
     });
     if (!rectFeature) return;
     draw.store.updateFeature(this.rectId, rectFeature);
@@ -64,5 +64,9 @@ export class DrawRectangleMode implements DrawMode {
     draw.store.clearHandles(this.rectId);
     this.start = undefined;
     this.rectId = undefined;
+  }
+
+  private withDefaultProps(props?: Record<string, unknown>) {
+    return { insertable: false, ...props };
   }
 }

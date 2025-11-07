@@ -28,7 +28,7 @@ export class DrawLineStringMode implements DrawMode {
 
     if (!this.lineId) {
       const lineFeature = draw.store.generateFeature("line", this.coordinates, {
-        props: { active: true },
+        props: { selected: true },
       });
       if (!lineFeature) return;
 
@@ -37,7 +37,7 @@ export class DrawLineStringMode implements DrawMode {
 
       if (this.lineId) draw.store.createHandle(this.lineId, coord);
     } else {
-      this.updateLine(draw, this.coordinates, { active: true });
+      this.updateLine(draw, this.coordinates, { selected: true });
       this.updateHandles(draw);
     }
   }
@@ -49,7 +49,7 @@ export class DrawLineStringMode implements DrawMode {
   onMouseMove(info: DrawInfo, draw: DrawController) {
     if (!this.lineId || this.coordinates.length === 0) return;
     const previewCoords = [...this.coordinates, [info.lng, info.lat]];
-    this.updateLine(draw, previewCoords, { active: true });
+    this.updateLine(draw, previewCoords, { selected: true });
   }
 
   private updateLine(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
@@ -74,7 +74,7 @@ export class DrawLineStringMode implements DrawMode {
 
   private finishLine(draw: DrawController) {
     if (!this.lineId || this.coordinates.length < 2) return;
-    this.updateLine(draw, this.coordinates, { active: false });
+    this.updateLine(draw, this.coordinates, { selected: false });
     draw.store.clearHandles(this.lineId);
     this.reset(draw);
   }

@@ -14,18 +14,14 @@
 ### Example usage
 
 ```ts
-import maplibregl from "maplibre-gl";
-import { DrawController } from "./core/draw-controller";
-import { SimpleSelect } from "./core/modes/simple-select-mode";
-import { DrawCircleMode } from "./core/modes/draw-circle-mode";
-import { Deck, GeoJsonLayer } from "deck.gl";
-
 const map = new maplibregl.Map();
 const deck = new Deck();
+
 const controller = new DrawController(deck, map, {
-  initialMode: new SimpleSelect(),
+  initialMode: new SimpleSelectMode({ dragWithoutSelect: true }),
   onUpdate: (features) => console.log("Updated features", features),
 });
 
-controller.changeMode(new DrawLineStringMode());
+controller.changeMode(DrawLineStringMode);
+controller.changeMode(SimpleSelectMode); // Preserves constructor options
 ```

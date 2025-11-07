@@ -20,11 +20,12 @@ export class DrawCircleMode implements DrawMode {
     if (!this.center) {
       this.center = [info.lng, info.lat];
       const circleFeature = draw.store.generateFeature("circle", [this.center, this.center], {
-        props: { active: true, insertable: false },
+        props: this.withDefaultProps({ selected: true }),
       });
       if (!circleFeature) return;
 
       this.circleId = circleFeature.id;
+
       draw.store.addFeature(circleFeature);
 
       if (this.circleId) draw.store.createHandle(this.circleId, this.center);
@@ -33,7 +34,7 @@ export class DrawCircleMode implements DrawMode {
 
     if (this.center && this.circleId) {
       const end: Position = [info.lng, info.lat];
-      this.updateCircle(draw, this.center, end, { active: false });
+      this.updateCircle(draw, this.center, end, { selected: false });
 
       draw.store.clearHandles(this.circleId);
       draw.store.createHandle(this.circleId, this.center);
@@ -46,7 +47,7 @@ export class DrawCircleMode implements DrawMode {
   onMouseMove(info: DrawInfo, draw: DrawController) {
     if (!this.center || !this.circleId) return;
     const radiusEnd: Position = [info.lng, info.lat];
-    this.updateCircle(draw, this.center, radiusEnd, { active: true });
+    this.updateCircle(draw, this.center, radiusEnd, { selected: true });
   }
 
   private updateCircle(
@@ -59,7 +60,7 @@ export class DrawCircleMode implements DrawMode {
 
     const circleFeature = draw.store.generateFeature("circle", [center, end], {
       id: this.circleId,
-      props: updatedProperties,
+      props: this.withDefaultProps(updatedProperties),
     });
     if (!circleFeature) return;
     draw.store.updateFeature(this.circleId, circleFeature);
@@ -69,5 +70,9 @@ export class DrawCircleMode implements DrawMode {
     draw.store.clearHandles(this.circleId);
     this.center = undefined;
     this.circleId = undefined;
+  }
+
+  private withDefaultProps(props?: Record<string, unknown>) {
+    return { insertable: false, ...props };
   }
 }
