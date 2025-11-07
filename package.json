@@ -6,9 +6,15 @@
   },
   "repository": "olafvisker/decklibre-draw",
   "type": "module",
-  "main": "dist/decklibre-draw.cjs.js",
-  "module": "dist/decklibre-draw.es.js",
+  "main": "dist/decklibre-draw.cjs",
+  "module": "dist/decklibre-draw.js",
   "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/decklibre-draw.js",
+      "require": "./dist/decklibre-draw.cjs"
+    }
+  },
   "sideEffects": false,
   "files": [
     "dist"
