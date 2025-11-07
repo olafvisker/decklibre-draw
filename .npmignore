@@ -1,0 +1,5 @@
+demo/
+src/
+vite.config.ts
+tsconfig.json
+.eslintrc.cjs

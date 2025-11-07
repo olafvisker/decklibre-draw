@@ -15,7 +15,8 @@
   ],
   "scripts": {
     "build": "vite build",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "prepare": "vite build"
   },
   "dependencies": {
     "@turf/turf": "^6.5.0",
