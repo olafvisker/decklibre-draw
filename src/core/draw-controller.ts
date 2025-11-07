@@ -14,7 +14,7 @@ export interface CursorOptions {
 }
 
 export interface DrawControllerOptions extends DrawStoreOptions {
-  initialMode?: DrawMode | (new (options?: unknown) => DrawMode);
+  initialMode?: DrawMode | DrawModeConstructor<unknown>;
   layerIds?: string[];
 }
 
@@ -58,13 +58,13 @@ export class DrawController {
   }
 
   /** Mode handling */
-  public changeMode<M extends DrawMode, O>(modeOrInstance: DrawModeConstructor<M, O> | M, options?: O) {
-    let newMode: M;
+  public changeMode<O>(modeOrInstance: DrawModeConstructor<O> | DrawMode, options?: O) {
+    let newMode: DrawMode;
 
     if (typeof modeOrInstance === "function") {
       // Reuse existing instance if no options provided
       if (!options && this._modeInstances.has(modeOrInstance)) {
-        newMode = this._modeInstances.get(modeOrInstance) as M;
+        newMode = this._modeInstances.get(modeOrInstance) as DrawMode;
       } else {
         newMode = new modeOrInstance(options);
         this._modeInstances.set(modeOrInstance, newMode);
