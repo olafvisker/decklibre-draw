@@ -3,7 +3,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import dts from "vite-plugin-dts";
 
 export default defineConfig({
-  plugins: [tsconfigPaths(), dts()],
+  plugins: [tsconfigPaths(), dts({ outDir: "dist/types", insertTypesEntry: true })],
   build: {
     lib: {
       entry: "src/index.ts",
