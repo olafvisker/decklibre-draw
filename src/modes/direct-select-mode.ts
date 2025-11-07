@@ -30,6 +30,7 @@ export class DirectSelectMode implements DrawMode {
 
   onExit(draw: DrawController) {
     this.deselectAll(draw);
+    1;
     this.resetDragState();
   }
 

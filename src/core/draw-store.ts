@@ -59,9 +59,20 @@ export class DrawStore {
   public removeFeatures(ids: (string | number | undefined)[]) {
     if (!ids.length) return;
     ids.forEach((id) => {
-      if (id !== undefined) this._featureMap.delete(id);
+      if (id === undefined) return;
+      this._featureMap.delete(id);
+      this._selectedIds.delete(id);
       this.clearHandles(id);
     });
+    this._emitUpdate();
+  }
+
+  public removeAllFeature() {
+    for (const featureId of this._handles.keys()) {
+      this.clearHandles(featureId);
+    }
+    this._featureMap.clear();
+    this._selectedIds.clear();
     this._emitUpdate();
   }
 
@@ -147,17 +158,17 @@ export class DrawStore {
     let changed = false;
 
     // Update selected features
-    this._selectedIds.forEach((id) => {
+    for (const id of this._selectedIds) {
       const feature = this._featureMap.get(id);
       if (feature && feature.properties?.selected !== true) {
         feature.properties = { ...feature.properties, selected: true };
         changed = true;
       }
-    });
+    }
 
     // Update unselected features
     for (const feature of this._featureMap.values()) {
-      if (feature.id && !this._selectedIds.has(feature.id) && feature.properties?.selected) {
+      if (feature.properties?.selected && !this._selectedIds.has(feature.id!)) {
         feature.properties = { ...feature.properties, selected: false };
         changed = true;
       }

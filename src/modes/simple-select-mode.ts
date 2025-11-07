@@ -29,6 +29,7 @@ export class SimpleSelectMode implements DrawMode {
     this._dragStartCoord = undefined;
     this._dragFeatureId = undefined;
     draw.setDraggability(true);
+    draw.store.clearSelection();
   }
 
   onClick(info: DrawInfo, draw: DrawController) {
@@ -39,8 +40,7 @@ export class SimpleSelectMode implements DrawMode {
     }
 
     if (draw.store.isSelected(feature.id)) {
-      draw.changeMode(DirectSelectMode);
-      draw.store.setSelected(feature.id);
+      draw.changeMode(DirectSelectMode, { selectedId: feature.id });
     } else {
       draw.store.setSelected(feature.id);
     }
