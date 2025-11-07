@@ -14,7 +14,7 @@ export interface CursorOptions {
 }
 
 export interface DrawControllerOptions extends DrawStoreOptions {
-  initialMode?: DrawMode | DrawModeConstructor<unknown>;
+  initialMode?: DrawMode | DrawModeConstructor<any>;
   layerIds?: string[];
 }
 
