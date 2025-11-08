@@ -55,7 +55,6 @@ controller.changeModeOptions<SimpleSelectMode>("select", { dragWithoutSelect: tr
 | `rectangle` | `DrawRectangleMode`  | Draw rectangles                |
 
 > All default modes are automatically registered and can be overridden in the constructor.
-> Here’s an updated paragraph you can add to the README describing the **mode interface** for custom modes:
 
 ### Creating Custom Modes
 
