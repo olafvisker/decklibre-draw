@@ -9,8 +9,6 @@ export interface DrawInfo {
   feature: Feature | undefined;
 }
 
-export type DrawModeConstructor<O> = new (options?: O) => DrawMode;
-
 export interface DrawMode {
   onEnter?: (draw: DrawController) => void;
   onExit?: (draw: DrawController) => void;

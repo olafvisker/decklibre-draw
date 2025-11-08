@@ -1,0 +1,28 @@
+html,
+body,
+#root {
+  height: 100svh;
+  width: 100svw;
+  margin: 0;
+  padding: 0;
+}
+
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  z-index: 2;
+  top: 97px;
+  margin: 10px;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  background: white;
+  overflow: hidden;
+}
+
+.toolbar-btn-active {
+  color: rgba(59, 178, 208, 255) !important;
+}
+.icon-active {
+  fill: rgba(59, 178, 208, 255) !important;
+}

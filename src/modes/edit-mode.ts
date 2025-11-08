@@ -1,30 +1,31 @@
 import { DrawMode, DrawController, DrawInfo } from "../core";
 import type { Feature, Point, Position } from "geojson";
 import { toMercator, toWgs84, point } from "@turf/turf";
-import { SimpleSelectMode } from "./simple-select-mode";
+import { SelectMode } from "./select-mode";
 
-interface DirectSelectModeOptions {
+interface EditModeOptions {
   selectedId?: string | number;
   dragWithoutSelect?: boolean;
 }
 
-export class DirectSelectMode implements DrawMode {
-  private _startSelectedId?: string | number;
+export class EditMode implements DrawMode {
+  public startSelectedId?: string | number;
+  public dragWithoutSelect = false;
+
   private _dragging = false;
   private _dragType: "feature" | "handle" | null = null;
   private _dragStartCoord?: Position;
-  private _dragWithoutSelect = false;
   private _dragFeatureId?: string | number;
   private _dragHandleIndex?: number;
 
-  constructor({ selectedId, dragWithoutSelect }: DirectSelectModeOptions = {}) {
-    this._startSelectedId = selectedId;
-    if (dragWithoutSelect) this._dragWithoutSelect = dragWithoutSelect;
+  constructor({ selectedId, dragWithoutSelect }: EditModeOptions = {}) {
+    this.startSelectedId = selectedId;
+    if (dragWithoutSelect) this.dragWithoutSelect = dragWithoutSelect;
   }
 
   onEnter(draw: DrawController) {
     draw.setCursor({ default: "default", hover: "pointer" });
-    if (this._startSelectedId) draw.store.setSelected(this._startSelectedId);
+    if (this.startSelectedId) draw.store.setSelected(this.startSelectedId);
     this.createHandles(draw);
   }
 
@@ -50,8 +51,7 @@ export class DirectSelectMode implements DrawMode {
     }
 
     if (!draw.store.isSelected(f.id)) {
-      draw.changeMode(SimpleSelectMode);
-      draw.store.setSelected(f.id);
+      draw.changeMode<SelectMode>("select", { startSelectedId: f.id });
     }
   }
 
@@ -61,7 +61,7 @@ export class DirectSelectMode implements DrawMode {
 
     const { handle, midpoint, _handleIndex, insertIndex } = f.properties || {};
 
-    if (this._dragWithoutSelect || draw.store.isSelected(f.id)) {
+    if (this.dragWithoutSelect || draw.store.isSelected(f.id)) {
       if (!handle && !midpoint) {
         this._dragging = true;
         this._dragFeatureId = f.id;

@@ -1,27 +1,28 @@
 import type { Feature, Position } from "geojson";
-import { DirectSelectMode } from "./direct-select-mode";
+import { EditMode } from "./edit-mode";
 import { DrawController, DrawInfo, DrawMode } from "../core";
 
-interface SimpleSelectModeOptions {
+interface SelectModeOptions {
   selectedId?: string | number;
   dragWithoutSelect?: boolean;
 }
 
-export class SimpleSelectMode implements DrawMode {
-  private _startSelectedId: string | number | undefined;
+export class SelectMode implements DrawMode {
+  public startSelectedId: string | number | undefined;
+  public dragWithoutSelect = false;
+
   private _dragging = false;
-  private _dragWithoutSelect = false;
   private _dragStartCoord?: [number, number];
   private _dragFeatureId?: string | number;
 
-  constructor({ selectedId, dragWithoutSelect }: SimpleSelectModeOptions = {}) {
-    if (dragWithoutSelect) this._dragWithoutSelect = dragWithoutSelect;
-    this._startSelectedId = selectedId;
+  constructor({ selectedId, dragWithoutSelect }: SelectModeOptions = {}) {
+    if (dragWithoutSelect) this.dragWithoutSelect = dragWithoutSelect;
+    this.startSelectedId = selectedId;
   }
 
   onEnter(draw: DrawController) {
     draw.setCursor({ default: "default", hover: "pointer" });
-    if (this._startSelectedId) draw.store.setSelected(this._startSelectedId);
+    if (this.startSelectedId) draw.store.setSelected(this.startSelectedId);
   }
 
   onExit(draw: DrawController) {
@@ -40,7 +41,7 @@ export class SimpleSelectMode implements DrawMode {
     }
 
     if (draw.store.isSelected(feature.id)) {
-      draw.changeMode(DirectSelectMode, { selectedId: feature.id });
+      draw.changeMode<EditMode>("edit", { startSelectedId: feature.id });
     } else {
       draw.store.setSelected(feature.id);
     }
@@ -50,7 +51,7 @@ export class SimpleSelectMode implements DrawMode {
     const featureId = info.feature?.id;
     if (!featureId) return;
 
-    if (this._dragWithoutSelect || draw.store.isSelected(featureId)) {
+    if (this.dragWithoutSelect || draw.store.isSelected(featureId)) {
       this._dragging = true;
       this._dragFeatureId = featureId;
       this._dragStartCoord = [info.lng, info.lat];

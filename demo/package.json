@@ -12,6 +12,7 @@
   "dependencies": {
     "@turf/turf": "^7.2.0",
     "deck.gl": "9.1.15",
+    "lucide-react": "^0.553.0",
     "maplibre-gl": "^5.10.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
