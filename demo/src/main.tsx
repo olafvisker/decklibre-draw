@@ -100,8 +100,9 @@ function Root() {
   const handleLoad = (deck: Deck, map: maplibregl.Map) => {
     draw = new DrawController(deck, map, {
       layerIds: ["geojson-layer"],
-      onUpdate: setFeatures,
     });
+
+    draw.on("feature:change", (e) => setFeatures(e.features));
   };
 
   const layers: LayersList = [

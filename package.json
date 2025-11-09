@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@turf/turf": "^6.5.0",
+    "mitt": "^3.0.1",
     "uuid": "^13.0.0"
   },
   "peerDependencies": {

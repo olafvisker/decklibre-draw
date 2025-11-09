@@ -1,9 +1,19 @@
 import { DrawMode, DrawController, DrawInfo } from "../core";
 import type { Position } from "geojson";
 
+interface DrawCircleOptions {
+  geodesic?: boolean;
+}
+
 export class DrawCircleMode implements DrawMode {
+  public geodesic: boolean;
+
   private center?: Position;
   private circleId?: string | number;
+
+  constructor({ geodesic }: DrawCircleOptions = {}) {
+    this.geodesic = geodesic ?? true;
+  }
 
   onEnter(draw: DrawController) {
     draw.setDoubleClickZoom(false);
@@ -60,7 +70,9 @@ export class DrawCircleMode implements DrawMode {
     const circleFeature = draw.store.generateFeature("circle", [center, end], {
       id: this.circleId,
       props: this.withDefaultProps(updatedProperties),
+      shapeGeneratorOptions: { geodesic: this.geodesic },
     });
+
     if (!circleFeature) return;
     draw.store.updateFeature(this.circleId, circleFeature);
   }

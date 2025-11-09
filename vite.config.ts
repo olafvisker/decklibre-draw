@@ -12,13 +12,14 @@ export default defineConfig({
       formats: ["es", "cjs", "umd"],
     },
     rollupOptions: {
-      external: ["@deck.gl/core", "maplibre-gl", "uuid", "@turf/turf"],
+      external: ["@deck.gl/core", "maplibre-gl", "uuid", "@turf/turf", "mitt"],
       output: {
         globals: {
           "@deck.gl/core": "Deck",
           "maplibre-gl": "maplibregl",
           uuid: "uuid",
           "@turf/turf": "turf",
+          mitt: "mitt",
         },
       },
     },

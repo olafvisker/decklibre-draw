@@ -1,16 +1,19 @@
 import type { Feature, Point, Position, GeoJsonProperties } from "geojson";
 import { v4 as uuid } from "uuid";
 import { DefaultShapeGenerators, type ShapeGeneratorFn } from "../generators/generators";
+import mitt from "mitt";
+import { DrawStoreEvents } from "./draw-events";
+import { DrawController } from "./draw-controller";
 
 export interface GenerateFeatureOptions<P extends GeoJsonProperties = GeoJsonProperties> {
   id?: string | number;
   props?: P;
+  shapeGeneratorOptions?: Record<string, unknown>;
 }
 
 export interface DrawStoreOptions {
   features?: Feature[];
   shapeGenerators?: Record<string, ShapeGeneratorFn>;
-  onUpdate?: (features: Feature[], selectedIds: (string | number)[]) => void;
 }
 
 export class DrawStore {
@@ -18,18 +21,18 @@ export class DrawStore {
   private _selectedIds = new Set<string | number>();
   private _handles: Map<string | number, Feature<Point>[]> = new Map();
   private _shapeGenerator: Record<string, ShapeGeneratorFn> = {};
-  private _onUpdate?: (features: Feature[], selectedIds: (string | number)[]) => void;
+  private _emitter = mitt<DrawStoreEvents>();
+  private _draw: DrawController;
 
-  constructor(options?: DrawStoreOptions) {
+  constructor(draw: DrawController, options?: DrawStoreOptions) {
+    this._draw = draw;
     this._shapeGenerator = { ...DefaultShapeGenerators, ...options?.shapeGenerators };
-    this._onUpdate = options?.onUpdate;
-
-    if (options?.features) {
-      for (const f of options.features) {
-        if (f.id !== undefined) this._featureMap.set(f.id, f);
-      }
-    }
+    if (options?.features) this.addFeatures(options.features);
   }
+
+  public on = this._emitter.on;
+  public off = this._emitter.off;
+  private _emit = this._emitter.emit;
 
   // --- Feature Management ---
   public get features(): Feature[] {
@@ -37,8 +40,7 @@ export class DrawStore {
   }
 
   public getFeature(id: string | number | undefined) {
-    if (!id) return;
-    return this._featureMap.get(id);
+    return id ? this._featureMap.get(id) : undefined;
   }
 
   public addFeature(feature: Feature) {
@@ -46,10 +48,15 @@ export class DrawStore {
   }
 
   public addFeatures(features: Feature[]) {
+    const added: Feature[] = [];
+    if (!features.length) return;
     for (const f of features) {
-      if (f.id !== undefined) this._featureMap.set(f.id, f);
+      if (f.id === undefined) continue;
+      this._featureMap.set(f.id, f);
+      added.push(f);
     }
-    this._emitUpdate();
+    this._emit("feature:add", { features: added });
+    this._emit("feature:change", { features: this.features });
   }
 
   public removeFeature(id: string | number | undefined) {
@@ -57,23 +64,26 @@ export class DrawStore {
   }
 
   public removeFeatures(ids: (string | number | undefined)[]) {
-    if (!ids.length) return;
-    ids.forEach((id) => {
-      if (id === undefined) return;
+    const validIds = ids.filter((id): id is string | number => id !== undefined);
+    if (!validIds.length) return;
+    for (const id of validIds) {
       this._featureMap.delete(id);
       this._selectedIds.delete(id);
       this.clearHandles(id);
-    });
-    this._emitUpdate();
+    }
+    this._emit("feature:remove", { ids: validIds });
+    this._emit("feature:change", { features: this.features });
   }
 
   public removeAllFeature() {
+    const ids = Array.from(this._featureMap.keys());
     for (const featureId of this._handles.keys()) {
       this.clearHandles(featureId);
     }
     this._featureMap.clear();
     this._selectedIds.clear();
-    this._emitUpdate();
+    this._emit("feature:remove", { ids });
+    this._emit("feature:change", { features: this.features });
   }
 
   public updateFeature(id: string | number | undefined, updates: Partial<Feature>) {
@@ -81,11 +91,11 @@ export class DrawStore {
     const feature = this._featureMap.get(id);
     if (!feature) return;
 
+    if (updates.properties) feature.properties = { ...feature.properties, ...updates.properties };
     Object.assign(feature, updates);
-    if (updates.properties) {
-      feature.properties = { ...feature.properties, ...updates.properties };
-    }
-    this._emitUpdate();
+
+    this._emit("feature:update", { features: [feature] });
+    this._emit("feature:change", { features: this.features });
   }
 
   // --- Handle Management ---
@@ -119,13 +129,13 @@ export class DrawStore {
 
   // --- Feature Generation ---
   public generateFeature(name: string, points: Position[], options?: GenerateFeatureOptions) {
-    const generator = this._shapeGenerator[name];
+    const generator = this._shapeGenerator[name] ?? "default";
     if (!generator) {
       console.warn(`Generator "${name}" not found.`);
       return;
     }
 
-    const feature = generator(points);
+    const feature = generator(this._draw, points, options?.shapeGeneratorOptions);
     if (!feature) return;
 
     feature.id = options?.id || feature.id || uuid();
@@ -174,11 +184,10 @@ export class DrawStore {
       }
     }
 
-    if (changed) this._emitUpdate();
-  }
-
-  // --- Internal ---
-  private _emitUpdate() {
-    this._onUpdate?.(this.features, this.selectedIds);
+    if (changed) {
+      this._emit("selection:change", { selectedIds: this.selectedIds });
+      this._emit("feature:update", { features: this.features });
+      this._emit("feature:change", { features: this.features });
+    }
   }
 }

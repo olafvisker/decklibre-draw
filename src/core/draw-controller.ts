@@ -1,9 +1,9 @@
 import type { Deck } from "@deck.gl/core";
-import type { Feature } from "geojson";
+import type { Feature, Position } from "geojson";
 import type { DrawInfo, DrawMode } from "./draw-mode";
 import { DrawStore, type DrawStoreOptions } from "./draw-store";
 import { v4 as uuid } from "uuid";
-import { Map as MaplibreMap } from "maplibre-gl";
+import { Map as MaplibreMap, PointLike } from "maplibre-gl";
 import {
   StaticMode,
   SelectMode,
@@ -14,6 +14,8 @@ import {
   DrawCircleMode,
   DrawRectangleMode,
 } from "../modes";
+import mitt from "mitt";
+import { DrawControllerEvents, DrawStoreEvents } from "./draw-events";
 
 export type CursorState = "default" | "grab" | "grabbing" | "crosshair" | "pointer" | "wait" | "move";
 
@@ -54,14 +56,14 @@ export class DrawController {
 
   private _panning = false;
   private _warmUpEnabled: boolean;
+  private _emitter = mitt<DrawControllerEvents>();
 
   constructor(deck: Deck, map: maplibregl.Map, options?: DrawControllerOptions) {
     this._deck = deck;
     this._map = map;
-    this._store = new DrawStore({
+    this._store = new DrawStore(this, {
       features: options?.features,
       shapeGenerators: options?.shapeGenerators,
-      onUpdate: options?.onUpdate,
     });
 
     this._layerIds = options?.layerIds;
@@ -83,6 +85,10 @@ export class DrawController {
   public destroy() {
     this._unbindEvents();
   }
+
+  public on = this._emitter.on;
+  public off = this._emitter.off;
+  private _emit = this._emitter.emit;
 
   /** Getters */
   public get features(): Feature[] {
@@ -136,6 +142,7 @@ export class DrawController {
 
     this._mode.onEnter?.(this);
 
+    this._emit("mode:change", { name, mode, options });
     return mode;
   }
 
@@ -143,6 +150,8 @@ export class DrawController {
     const mode = this._modes.get(name) as T | undefined;
     if (!mode) throw new Error(`Mode "${name}" is not registered.`);
     Object.assign(mode, options);
+
+    this._emit("mode:options", { name, mode, options });
   }
 
   /** Cursor handling */
@@ -157,7 +166,7 @@ export class DrawController {
     });
   }
 
-  /** Deck/map helpers */
+  /** Map helpers */
   public setDraggability(enabled: boolean) {
     if (enabled) {
       this._map.dragRotate.enable();
@@ -176,10 +185,15 @@ export class DrawController {
     }
   }
 
-  private _reset() {
-    this.setDraggability(true);
-    this.setDoubleClickZoom(true);
-    this.setCursor("default");
+  public project(position: Position): Position {
+    const [lng, lat] = position;
+    const point = this._map.project([lng, lat]);
+    return [point.x, point.y];
+  }
+
+  public unproject(point: Position): Position {
+    const lngLat = this._map.unproject({ x: point[0], y: point[1] } as PointLike);
+    return [lngLat.lng, lngLat.lat];
   }
 
   /** Event binding */
@@ -193,6 +207,18 @@ export class DrawController {
     this._map.on("mouseup", this._onMouseUp);
     this._map.on("click", this._onClick);
     this._map.on("dblclick", this._onDoubleClick);
+
+    const events: (keyof DrawStoreEvents)[] = [
+      "feature:add",
+      "feature:remove",
+      "feature:update",
+      "feature:change",
+      "selection:change",
+    ];
+
+    for (const type of events) {
+      this._store.on(type, (e) => this._emit(type, e as any));
+    }
   }
 
   private _unbindEvents() {
@@ -275,5 +301,11 @@ export class DrawController {
     const { lng, lat } = event.lngLat;
     const picked = this._deck.pickObject({ x, y, layerIds: this._layerIds, radius: this._deck.props.pickingRadius });
     return { x, y, lng, lat, feature: picked?.object };
+  }
+
+  private _reset() {
+    this.setDraggability(true);
+    this.setDoubleClickZoom(true);
+    this.setCursor("default");
   }
 }
