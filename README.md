@@ -2,7 +2,7 @@
 
 ![Tool](assets/tool.gif)
 
-**decklibre-draw** is a lightweight library for drawing and editing geometries on **Deck.gl** and **MapLibre GL**. Loosely inspired by `mapbox-gl-draw`, shapes are defined by **feature generators**, which separate editable points (handles) from the shapes themselves. This allows for flexible editing beyond standard vertex-based libraries.
+**decklibre-draw** is a lightweight library for drawing and editing geometries on **Deck.gl** and **MapLibre GL**. Loosely inspired by `mapbox-gl-draw`, shapes are defined by **feature generators**, which separate editable points (handles) from the shapes themselves.
 
 - Draw and edit points, lines, polygons, circles, and rectangles
 - Custom feature generators allow creating new types of geometries
@@ -31,9 +31,10 @@ const controller = new DrawController(deck, map, {
     select: new SimpleSelectMode({ dragWithoutSelect: true }),
     custom: new CustomDrawMode(),
     ...DEFAULT_MODES
-  },
-  onUpdate: (features) => console.log("Updated features", features),
+  }
 });
+
+draw.on("feature:change", (e) => console.log(e.features));
 
 // Switch modes, switch & update options, update options
 controller.changeMode("circle");
@@ -55,6 +56,28 @@ controller.changeModeOptions<SimpleSelectMode>("select", { dragWithoutSelect: tr
 | `rectangle` | `DrawRectangleMode`  | Draw rectangles                |
 
 > All default modes are automatically registered and can be overridden in the constructor.
+
+### Events
+
+| Event            | Payload                         | Description                  |
+| ---------------- | ------------------------------- | ---------------------------- |
+| `feature:add`    | `{ features: Feature[] }`       | Returns added features       |
+| `feature:remove` | `{ ids: (string \| number)[] }` | Returns removed feature ids  |
+| `feature:update` | `{ features: Feature[] }`       | Returns updated features     |
+| `feature:change` | `{ features: Feature[] }`       | Returns all current features |
+
+#### Selection Events
+
+| Event              | Payload                                 | Description                      |
+| ------------------ | --------------------------------------- | -------------------------------- |
+| `selection:change` | `{ selectedIds: (string \| number)[] }` | Returns all selected feature Ids |
+
+#### Mode Events
+
+| Event          | Payload                                                           | Description                                        |
+| -------------- | ----------------------------------------------------------------- | -------------------------------------------------- |
+| `mode:change`  | `{ name: string; mode: DrawMode; options?: Record<string, any> }` | Fired when the draw mode changes                   |
+| `mode:options` | `{ name: string; mode: DrawMode; options: Record<string, any> }`  | Fired when options of the current mode are updated |
 
 ### Creating Custom Modes
 
