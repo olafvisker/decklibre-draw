@@ -40,24 +40,34 @@ function DeckGLOverlay({ onReady, ...props }: DeckGLOverlayProps) {
   return null;
 }
 
+const modes: { label: string; icon: React.ReactNode; mode: string }[] = [
+  { label: "Static", icon: <HandIcon size={16} />, mode: "static" },
+  { label: "Select", icon: <MousePointer2Icon size={16} />, mode: "select" },
+  { label: "Direct", icon: <MousePointerClickIcon size={16} />, mode: "edit" },
+  { label: "Draw Point", icon: <MapPinIcon size={16} />, mode: "point" },
+  { label: "Draw Line", icon: <WaypointsIcon size={16} />, mode: "line" },
+  { label: "Draw Polygon", icon: <PentagonIcon size={16} />, mode: "polygon" },
+  { label: "Draw Circle", icon: <RadiusIcon size={16} />, mode: "circle" },
+  { label: "Draw Rectangle", icon: <VectorSquare size={16} />, mode: "rectangle" },
+];
+
 function Toolbar() {
   const [activeMode, setActiveMode] = useState<string>(draw?.currentMode ?? "static");
   const [dragWithoutSelect, setDragWithoutSelect] = useState(false);
 
-  const buttons: { label: string; icon: React.ReactNode; mode: string }[] = [
-    { label: "Static", icon: <HandIcon size={16} />, mode: "static" },
-    { label: "Select", icon: <MousePointer2Icon size={16} />, mode: "select" },
-    { label: "Direct", icon: <MousePointerClickIcon size={16} />, mode: "edit" },
-    { label: "Draw Point", icon: <MapPinIcon size={16} />, mode: "point" },
-    { label: "Draw Line", icon: <WaypointsIcon size={16} />, mode: "line" },
-    { label: "Draw Polygon", icon: <PentagonIcon size={16} />, mode: "polygon" },
-    { label: "Draw Circle", icon: <RadiusIcon size={16} />, mode: "circle" },
-    { label: "Draw Rectangle", icon: <VectorSquare size={16} />, mode: "rectangle" },
-  ];
-
   useEffect(() => {
-    if (!draw) return;
-    setActiveMode(draw.currentMode ?? "static");
+    setActiveMode("static");
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = parseInt(e.key, 10);
+      if (!isNaN(key) && key >= 1 && key <= modes.length) {
+        const mode = modes[key - 1].mode;
+        draw?.changeMode(mode);
+        setActiveMode(mode);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   const toggleDragWithoutSelect = () => {
@@ -71,7 +81,7 @@ function Toolbar() {
 
   return (
     <div className="toolbar maplibregl-ctrl maplibregl-ctrl-group">
-      {buttons.map(({ label, icon, mode }) => (
+      {modes.map(({ label, icon, mode }) => (
         <button
           key={label}
           className={`toolbar-btn ${mode === activeMode ? "toolbar-btn-active" : ""}`}
