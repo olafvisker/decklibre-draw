@@ -1,32 +1,22 @@
-import type { Feature, Point, Position, GeoJsonProperties } from "geojson";
+import type { Feature, Point, Position } from "geojson";
 import { v4 as uuid } from "uuid";
-import { DefaultShapeGenerators, type ShapeGeneratorFn } from "../generators/generators";
 import mitt from "mitt";
 import { DrawStoreEvents } from "./draw-events";
 import { DrawController } from "./draw-controller";
 
-export interface GenerateFeatureOptions<P extends GeoJsonProperties = GeoJsonProperties> {
-  id?: string | number;
-  props?: P;
-  shapeGeneratorOptions?: Record<string, unknown>;
-}
-
 export interface DrawStoreOptions {
   features?: Feature[];
-  shapeGenerators?: Record<string, ShapeGeneratorFn>;
 }
 
 export class DrawStore {
   private _featureMap: Map<string | number, Feature> = new Map();
   private _selectedIds = new Set<string | number>();
   private _handles: Map<string | number, Feature<Point>[]> = new Map();
-  private _shapeGenerator: Record<string, ShapeGeneratorFn> = {};
   private _emitter = mitt<DrawStoreEvents>();
   private _draw: DrawController;
 
   constructor(draw: DrawController, options?: DrawStoreOptions) {
     this._draw = draw;
-    this._shapeGenerator = { ...DefaultShapeGenerators, ...options?.shapeGenerators };
     if (options?.features) this.addFeatures(options.features);
   }
 
@@ -125,23 +115,6 @@ export class DrawStore {
   public getHandles(featureId: string | number | undefined) {
     if (!featureId) return [];
     return this._handles.get(featureId) ?? [];
-  }
-
-  // --- Feature Generation ---
-  public generateFeature(name: string, points: Position[], options?: GenerateFeatureOptions) {
-    const generator = this._shapeGenerator[name] ?? "default";
-    if (!generator) {
-      console.warn(`Generator "${name}" not found.`);
-      return;
-    }
-
-    const feature = generator(this._draw, points, options?.shapeGeneratorOptions);
-    if (!feature) return;
-
-    feature.id = options?.id || feature.id || uuid();
-    feature.properties = { ...feature.properties, generator: name, handles: points, ...options?.props };
-
-    return feature;
   }
 
   // --- Selection Management ---

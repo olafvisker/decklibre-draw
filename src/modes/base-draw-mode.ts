@@ -2,9 +2,10 @@ import { DrawMode, DrawController, DrawInfo } from "../core";
 import type { Position } from "geojson";
 
 export interface BaseDrawModeConfig {
-  generator: {
-    name: string;
-    options?: Record<string, unknown>;
+  shape: {
+    generator: string;
+    generatorOptions?: Record<string, unknown>;
+    editor?: string;
   };
   pointCount?: number;
   handleDisplay?: "none" | "first" | "last" | "first-last" | "all";
@@ -52,7 +53,7 @@ export class BaseDrawMode implements DrawMode {
       return;
     }
 
-    this.updateShape(draw, this.coordinates, { selected: true });
+    this.updateShape(draw, this.coordinates);
     this.updateHandles(draw);
   }
 
@@ -63,19 +64,24 @@ export class BaseDrawMode implements DrawMode {
   onMouseMove(info: DrawInfo, draw: DrawController) {
     if (!this.featureId || this.coordinates.length === 0) return;
     const previewCoords = [...this.coordinates, [info.lng, info.lat]];
-    this.updateShape(draw, previewCoords, { selected: true });
+    this.updateShape(draw, previewCoords);
+  }
+
+  protected generateFeature(draw: DrawController, points: Position[], props?: Record<string, unknown>) {
+    return draw.generateFeature(this.config.shape.generator, points, {
+      props: {
+        selected: true,
+        editor: this.config.shape.editor,
+        ...this.config.featureProps,
+        ...props,
+      },
+      shapeGeneratorOptions: this.config.shape.generatorOptions,
+    });
   }
 
   protected createInitialFeature(draw: DrawController, coord: Position) {
     const initialCoords = this.config.pointCount === 1 ? [coord] : [coord, coord];
-    const feature = draw.store.generateFeature(this.config.generator.name, initialCoords, {
-      props: {
-        selected: true,
-        ...this.config.featureProps,
-      },
-      shapeGeneratorOptions: this.config.generator.options,
-    });
-
+    const feature = this.generateFeature(draw, initialCoords);
     if (!feature) return;
 
     this.featureId = feature.id;
@@ -88,16 +94,7 @@ export class BaseDrawMode implements DrawMode {
 
   protected updateShape(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
     if (!this.featureId) return;
-
-    const feature = draw.store.generateFeature(this.config.generator.name, coords, {
-      id: this.featureId,
-      props: {
-        ...this.config.featureProps,
-        ...props,
-      },
-      shapeGeneratorOptions: this.config.generator.options,
-    });
-
+    const feature = this.generateFeature(draw, coords, props);
     if (!feature) return;
     draw.store.updateFeature(this.featureId, feature);
   }
@@ -156,7 +153,7 @@ export class BaseDrawMode implements DrawMode {
 export class DrawPointMode extends BaseDrawMode {
   constructor() {
     super({
-      generator: { name: "point" },
+      shape: { generator: "point" },
       pointCount: 1,
     });
   }
@@ -165,7 +162,7 @@ export class DrawPointMode extends BaseDrawMode {
 export class DrawLineStringMode extends BaseDrawMode {
   constructor() {
     super({
-      generator: { name: "line" },
+      shape: { generator: "line" },
       handleDisplay: "last",
     });
   }
@@ -174,7 +171,7 @@ export class DrawLineStringMode extends BaseDrawMode {
 export class DrawPolygonMode extends BaseDrawMode {
   constructor() {
     super({
-      generator: { name: "polygon" },
+      shape: { generator: "polygon" },
       handleDisplay: "first-last",
     });
   }
@@ -183,10 +180,10 @@ export class DrawPolygonMode extends BaseDrawMode {
 export class DrawCircleMode extends BaseDrawMode {
   constructor({ geodesic = true }: { geodesic?: boolean } = {}) {
     super({
-      generator: { name: "circle", options: { geodesic } },
+      shape: { generator: "circle", generatorOptions: { geodesic } },
       pointCount: 2,
       handleDisplay: "first",
-      featureProps: { insertable: false },
+      featureProps: { insertable: false, handleEditor: "circle" },
     });
   }
 }
@@ -194,7 +191,7 @@ export class DrawCircleMode extends BaseDrawMode {
 export class DrawRectangleMode extends BaseDrawMode {
   constructor() {
     super({
-      generator: { name: "rect" },
+      shape: { generator: "rect" },
       pointCount: 2,
       handleDisplay: "first",
       featureProps: { insertable: false },

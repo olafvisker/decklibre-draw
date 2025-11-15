@@ -11,15 +11,10 @@ export interface HandleEditContext {
 
 export interface HandleEditResult {
   handles: Position[];
-  // Optional: allow editor to return additional updates
   additionalUpdates?: Partial<Feature>;
 }
 
 export type HandleEditorFn = (context: HandleEditContext) => HandleEditResult;
-
-// ============================================================================
-// Built-in Handle Editors
-// ============================================================================
 
 /**
  * Default: Move only the selected handle
@@ -145,11 +140,7 @@ export const proportionalScaleEditor: HandleEditorFn = ({ handles, handleIndex, 
   return { handles: updated };
 };
 
-// ============================================================================
-// Default Editor Registry
-// ============================================================================
-
-export const DefaultHandleEditors: Record<string, HandleEditorFn> = {
+export const DefaultEditModes: Record<string, HandleEditorFn> = {
   isolated: isolatedHandleEditor,
   symmetric: symmetricHandleEditor,
   mirror: mirrorHandleEditor,
@@ -157,28 +148,3 @@ export const DefaultHandleEditors: Record<string, HandleEditorFn> = {
   circle: circleRadiusEditor,
   proportional: proportionalScaleEditor,
 };
-
-// ============================================================================
-// Helper to get the appropriate editor for a feature
-// ============================================================================
-
-export function getHandleEditorForFeature(
-  feature: Feature,
-  customEditors?: Record<string, HandleEditorFn>
-): HandleEditorFn {
-  const editors = { ...DefaultHandleEditors, ...customEditors };
-
-  // Check if feature specifies a handle editor
-  const editorName = feature.properties?.handleEditor;
-  if (editorName && editors[editorName]) {
-    return editors[editorName];
-  }
-
-  // Check if feature generator has a default editor
-  const generatorName = feature.properties?.generator;
-  if (generatorName === "circle") return editors.circle;
-  if (generatorName === "rect") return editors.rectangle;
-
-  // Default to isolated
-  return editors.isolated;
-}

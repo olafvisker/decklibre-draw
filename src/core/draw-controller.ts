@@ -1,28 +1,29 @@
 import type { Deck } from "@deck.gl/core";
-import type { Feature, Position } from "geojson";
+import type { Feature, GeoJsonProperties, Position } from "geojson";
 import type { DrawInfo, DrawMode } from "./draw-mode";
-import { DrawStore, type DrawStoreOptions } from "./draw-store";
+import { DrawStore } from "./draw-store";
 import { v4 as uuid } from "uuid";
 import { Map as MaplibreMap, PointLike } from "maplibre-gl";
 import {
   StaticMode,
   SelectMode,
   EditMode,
-  // DrawPointMode,
-  // DrawLineStringMode,
-  // DrawPolygonMode,
-  // DrawCircleMode,
-  // DrawRectangleMode,
-} from "../modes";
-import mitt from "mitt";
-import { DrawControllerEvents, DrawStoreEvents } from "./draw-events";
-import {
   DrawLineStringMode,
   DrawPolygonMode,
   DrawCircleMode,
   DrawRectangleMode,
   DrawPointMode,
-} from "../modes/base-draw-mode";
+} from "../modes";
+import mitt from "mitt";
+import { DrawControllerEvents, DrawStoreEvents } from "./draw-events";
+import { DefaultShapeGenerators, type ShapeGeneratorFn } from "../generators/generators";
+import { DefaultEditModes, type HandleEditorFn } from "../editors";
+
+export interface GenerateFeatureOptions<P extends GeoJsonProperties = GeoJsonProperties> {
+  id?: string | number;
+  props?: P;
+  shapeGeneratorOptions?: Record<string, unknown>;
+}
 
 export type CursorState = "default" | "grab" | "grabbing" | "crosshair" | "pointer" | "wait" | "move";
 
@@ -32,7 +33,10 @@ export interface CursorOptions {
   pan?: CursorState;
 }
 
-export interface DrawControllerOptions extends DrawStoreOptions {
+export interface DrawControllerOptions {
+  features?: Feature[];
+  shapeGenerators?: Record<string, ShapeGeneratorFn>;
+  handleEditors?: Record<string, HandleEditorFn>;
   modes?: Record<string, DrawMode>;
   initialMode?: string;
   layerIds?: string[];
@@ -56,7 +60,9 @@ export class DrawController {
 
   private _mode?: DrawMode;
   private _modeName?: string;
-  private _modes = new Map<string, DrawMode>();
+  private _modes: Record<string, DrawMode> = {};
+  private _shapeGenerators: Record<string, ShapeGeneratorFn> = {};
+  private _handleEditors: Record<string, HandleEditorFn> = {};
 
   private _store: DrawStore;
   private _layerIds?: string[];
@@ -68,21 +74,18 @@ export class DrawController {
   constructor(deck: Deck, map: maplibregl.Map, options?: DrawControllerOptions) {
     this._deck = deck;
     this._map = map;
-    this._store = new DrawStore(this, {
-      features: options?.features,
-      shapeGenerators: options?.shapeGenerators,
-    });
+
+    this._modes = { ...DEFAULT_MODES, ...options?.modes };
+    this._shapeGenerators = { ...DefaultShapeGenerators, ...options?.shapeGenerators };
+    this._handleEditors = { ...DefaultEditModes, ...options?.handleEditors };
+
+    this._store = new DrawStore(this, { features: options?.features });
 
     this._layerIds = options?.layerIds;
     this._warmUpEnabled = options?.warmUp ?? true;
 
-    const initialModes = { ...DEFAULT_MODES, ...(options?.modes ?? {}) };
-    for (const [name, instance] of Object.entries(initialModes)) {
-      this.registerMode(name, instance);
-    }
-
     const initialModeName = options?.initialMode ?? "static";
-    if (initialModeName && this._modes.has(initialModeName)) {
+    if (initialModeName && initialModeName in this._modes) {
       this.changeMode(initialModeName);
     }
 
@@ -114,29 +117,67 @@ export class DrawController {
     return this._store;
   }
 
-  /** Mode handling */
+  /** Shape Generator Registry */
+  public registerShapeGenerator(name: string, generator: ShapeGeneratorFn) {
+    if (!name) throw new Error("Generator name is required.");
+    this._shapeGenerators[name] = generator;
+  }
+
+  public unregisterShapeGenerator(name: string) {
+    delete this._shapeGenerators[name];
+  }
+
+  public getShapeGenerator(name: string): ShapeGeneratorFn | undefined {
+    return this._shapeGenerators[name];
+  }
+
+  public getRegisteredShapeGenerators(): string[] {
+    return Object.keys(this._shapeGenerators);
+  }
+
+  /** Handle Editor Registry */
+  public registerHandleEditor(name: string, editor: HandleEditorFn) {
+    if (!name) throw new Error("Handle editor name is required.");
+    this._handleEditors[name] = editor;
+  }
+
+  public unregisterHandleEditor(name: string) {
+    delete this._handleEditors[name];
+  }
+
+  public getHandleEditor(name: string): HandleEditorFn | undefined {
+    return this._handleEditors[name];
+  }
+
+  public getRegisteredHandleEditors(): string[] {
+    return Object.keys(this._handleEditors);
+  }
+
+  /** Mode Registry */
   public registerMode(name: string, instance: DrawMode) {
     if (!name) throw new Error("Mode name is required.");
-    this._modes.set(name, instance);
+    this._modes[name] = instance;
   }
 
   public unregisterMode(name: string) {
-    if (!this._modes.has(name)) return;
+    if (!this._modes[name]) return;
+
     if (this._modeName === name) {
       this._mode?.onExit?.(this);
       this._reset();
       this._mode = undefined;
       this._modeName = undefined;
     }
-    this._modes.delete(name);
+
+    delete this._modes[name];
   }
 
   public getRegisteredModes(): string[] {
-    return Array.from(this._modes.keys());
+    return Object.keys(this._modes);
   }
 
   public changeMode<T extends DrawMode = DrawMode>(name: string, options?: Partial<T>): T {
-    const mode = this._modes.get(name) as T | undefined;
+    const mode = this._modes[name] as T | undefined;
     if (!mode) throw new Error(`Mode "${name}" is not registered.`);
 
     this._mode?.onExit?.(this);
@@ -154,7 +195,7 @@ export class DrawController {
   }
 
   public changeModeOptions<T extends DrawMode | unknown = DrawMode>(name: string, options: Partial<T>): void {
-    const mode = this._modes.get(name) as T | undefined;
+    const mode = this._modes[name] as T | undefined;
     if (!mode) throw new Error(`Mode "${name}" is not registered.`);
     Object.assign(mode, options);
 
@@ -201,6 +242,20 @@ export class DrawController {
   public unproject(point: Position): Position {
     const lngLat = this._map.unproject({ x: point[0], y: point[1] } as PointLike);
     return [lngLat.lng, lngLat.lat];
+  }
+
+  /** Generator */
+  public generateFeature(name: string, points: Position[], options?: GenerateFeatureOptions) {
+    const generator = this.getShapeGenerator(name);
+    if (!generator) {
+      console.warn(`Generator "${name}" not found.`);
+      return;
+    }
+
+    const feature = generator(this, points, options?.shapeGeneratorOptions);
+    feature.id = options?.id || feature.id || uuid();
+    feature.properties = { ...feature.properties, generator: name, handles: points, ...options?.props };
+    return feature;
   }
 
   /** Event binding */

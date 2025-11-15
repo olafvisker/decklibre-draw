@@ -5,8 +5,7 @@ export {
   constrainedRectangleEditor,
   circleRadiusEditor,
   proportionalScaleEditor,
-  DefaultHandleEditors,
-  getHandleEditorForFeature,
+  DefaultEditModes,
 } from "./handle-editors";
 
 export type { HandleEditContext, HandleEditResult, HandleEditorFn } from "./handle-editors";

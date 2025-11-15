@@ -35,6 +35,7 @@ export class SelectMode implements DrawMode {
   }
 
   onClick(info: DrawInfo, draw: DrawController) {
+    console.log(info);
     const feature = info.feature;
     if (!feature?.id) {
       draw.store.clearSelection();
@@ -75,7 +76,7 @@ export class SelectMode implements DrawMode {
       // Regenerate feature via generator
       const movedHandles = handles.map(([x, y]) => [x + dx, y + dy]);
 
-      const updated = draw.store.generateFeature(feature.properties.generator, movedHandles, {
+      const updated = draw.generateFeature(feature.properties?.generator, movedHandles, {
         id: feature.id,
         props: { ...feature.properties, handles: movedHandles },
       });

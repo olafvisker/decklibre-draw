@@ -2,7 +2,7 @@ import { DrawMode, DrawController, DrawInfo } from "../core";
 import type { Feature, Point, Position } from "geojson";
 import { toMercator, toWgs84, point } from "@turf/turf";
 import { SelectMode } from "./select-mode";
-import { getHandleEditorForFeature, type HandleEditorFn } from "../editors/handle-editors";
+import { type HandleEditorFn } from "../editors/handle-editors";
 
 interface EditModeOptions {
   selectedId?: string | number;
@@ -13,7 +13,6 @@ interface EditModeOptions {
 export class EditMode implements DrawMode {
   public startSelectedId?: string | number;
   public dragWithoutSelect = false;
-  public handleEditors?: Record<string, HandleEditorFn>;
 
   private _dragging = false;
   private _dragType: "feature" | "handle" | null = null;
@@ -21,10 +20,9 @@ export class EditMode implements DrawMode {
   private _dragFeatureId?: string | number;
   private _dragHandleIndex?: number;
 
-  constructor({ selectedId, dragWithoutSelect, handleEditors }: EditModeOptions = {}) {
+  constructor({ selectedId, dragWithoutSelect }: EditModeOptions = {}) {
     this.startSelectedId = selectedId;
     if (dragWithoutSelect) this.dragWithoutSelect = dragWithoutSelect;
-    if (handleEditors) this.handleEditors = handleEditors;
   }
 
   onEnter(draw: DrawController) {
@@ -153,15 +151,14 @@ export class EditMode implements DrawMode {
   }
 
   /**
-   * NEW: Use handle editor system for editing individual handles
+   * Use controller's handle editor registry
    */
   private editHandle(feature: Feature, handleIndex: number, dx: number, dy: number, draw: DrawController): Feature {
     const handles: Position[] = feature.properties?.handles || [];
 
-    // Get the appropriate editor for this feature
-    const editor = getHandleEditorForFeature(feature, this.handleEditors);
+    // Get editor from controller's registry
+    const editor = this.getHandleEditorForFeature(feature, draw);
 
-    // Apply the editor
     const result = editor({
       feature,
       handleIndex,
@@ -170,15 +167,19 @@ export class EditMode implements DrawMode {
       draw,
     });
 
-    // Regenerate feature with updated handles
     const updated = this.regenerateFeature(draw, feature, result.handles);
 
-    // Apply any additional updates from the editor
     if (result.additionalUpdates) {
       Object.assign(updated, result.additionalUpdates);
     }
 
     return updated;
+  }
+
+  private getHandleEditorForFeature(feature: Feature, draw: DrawController): HandleEditorFn {
+    const editor = draw.getHandleEditor(feature.properties?.editor);
+    if (editor) return editor;
+    return draw.getHandleEditor("isolated")!;
   }
 
   private insertVertex(draw: DrawController, index: number, coord: Position) {
@@ -246,7 +247,7 @@ export class EditMode implements DrawMode {
     const props = { ...feature.properties, handles: coords };
 
     if (generatorName) {
-      const regenerated = draw.store.generateFeature(generatorName, coords, { id: feature.id, props });
+      const regenerated = draw.generateFeature(generatorName, coords, { id: feature.id, props });
       return regenerated || feature;
     }
 
