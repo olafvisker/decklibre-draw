@@ -2,12 +2,12 @@ import { DrawMode, DrawController, DrawInfo } from "../core";
 import type { Feature, Point, Position } from "geojson";
 import { toMercator, toWgs84, point } from "@turf/turf";
 import { SelectMode } from "./select-mode";
-import { type HandleEditorFn } from "../editors/handle-editors";
+import { type EditorFn } from "../editors/editors";
 
 interface EditModeOptions {
   selectedId?: string | number;
   dragWithoutSelect?: boolean;
-  handleEditors?: Record<string, HandleEditorFn>;
+  editors?: Record<string, EditorFn>;
 }
 
 export class EditMode implements DrawMode {
@@ -69,7 +69,7 @@ export class EditMode implements DrawMode {
         this._dragFeatureId = f.id;
         this._dragType = "feature";
         this._dragStartCoord = [info.lng, info.lat];
-        draw.setDraggability(false);
+        draw.setPanning(false);
         draw.setDoubleClickZoom(false);
         return;
       }
@@ -119,7 +119,7 @@ export class EditMode implements DrawMode {
   onMouseUp(info: DrawInfo, draw: DrawController) {
     this.resetDragState();
     this._dragFeatureId = undefined;
-    draw.setDraggability(true);
+    draw.setPanning(true);
 
     if (!info.feature || (!info.feature.properties?.handle && !info.feature.properties?.midpoint)) {
       draw.setDoubleClickZoom(true);
@@ -139,7 +139,7 @@ export class EditMode implements DrawMode {
     this._dragType = type;
     this._dragStartCoord = [info.lng, info.lat];
     this._dragHandleIndex = handleIndex;
-    draw.setDraggability(false);
+    draw.setPanning(false);
     draw.setDoubleClickZoom(false);
   }
 
@@ -157,7 +157,7 @@ export class EditMode implements DrawMode {
     const handles: Position[] = feature.properties?.handles || [];
 
     // Get editor from controller's registry
-    const editor = this.getHandleEditorForFeature(feature, draw);
+    const editor = this.getEditorForFeature(feature, draw);
 
     const result = editor({
       feature,
@@ -176,10 +176,10 @@ export class EditMode implements DrawMode {
     return updated;
   }
 
-  private getHandleEditorForFeature(feature: Feature, draw: DrawController): HandleEditorFn {
-    const editor = draw.getHandleEditor(feature.properties?.editor);
+  private getEditorForFeature(feature: Feature, draw: DrawController): EditorFn {
+    const editor = draw.getEditor(feature.properties?.editor);
     if (editor) return editor;
-    return draw.getHandleEditor("isolated")!;
+    return draw.getEditor("isolated")!;
   }
 
   private insertVertex(draw: DrawController, index: number, coord: Position) {

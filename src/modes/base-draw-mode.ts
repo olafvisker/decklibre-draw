@@ -69,6 +69,7 @@ export class BaseDrawMode implements DrawMode {
 
   protected generateFeature(draw: DrawController, points: Position[], props?: Record<string, unknown>) {
     return draw.generateFeature(this.config.shape.generator, points, {
+      id: this.featureId,
       props: {
         selected: true,
         editor: this.config.shape.editor,
@@ -87,9 +88,7 @@ export class BaseDrawMode implements DrawMode {
     this.featureId = feature.id;
     draw.store.addFeature(feature);
 
-    if (this.featureId) {
-      draw.store.createHandle(this.featureId, coord);
-    }
+    if (this.featureId) this.updateHandles(draw);
   }
 
   protected updateShape(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
@@ -183,7 +182,7 @@ export class DrawCircleMode extends BaseDrawMode {
       shape: { generator: "circle", generatorOptions: { geodesic } },
       pointCount: 2,
       handleDisplay: "first",
-      featureProps: { insertable: false, handleEditor: "circle" },
+      featureProps: { insertable: false },
     });
   }
 }

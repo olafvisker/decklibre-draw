@@ -14,12 +14,12 @@ export interface HandleEditResult {
   additionalUpdates?: Partial<Feature>;
 }
 
-export type HandleEditorFn = (context: HandleEditContext) => HandleEditResult;
+export type EditorFn = (context: HandleEditContext) => HandleEditResult;
 
 /**
  * Default: Move only the selected handle
  */
-export const isolatedHandleEditor: HandleEditorFn = ({ handles, handleIndex, delta }) => {
+export const isolatedEditor: EditorFn = ({ handles, handleIndex, delta }) => {
   const [dx, dy] = delta;
   const updated = handles.map((coord, i) => (i === handleIndex ? [coord[0] + dx, coord[1] + dy] : coord));
   return { handles: updated };
@@ -29,7 +29,7 @@ export const isolatedHandleEditor: HandleEditorFn = ({ handles, handleIndex, del
  * Symmetric: Move opposite handle in the opposite direction
  * Useful for rectangles, ellipses, etc.
  */
-export const symmetricHandleEditor: HandleEditorFn = ({ handles, handleIndex, delta }) => {
+export const symmetricEditor: EditorFn = ({ handles, handleIndex, delta }) => {
   const [dx, dy] = delta;
   const oppositeIndex = (handleIndex + 2) % 4; // Works for 4-point shapes
 
@@ -46,7 +46,7 @@ export const symmetricHandleEditor: HandleEditorFn = ({ handles, handleIndex, de
  * Mirror: Move opposite handle in the same direction (maintain center)
  * Useful for centered shapes
  */
-export const mirrorHandleEditor: HandleEditorFn = ({ handles, handleIndex, delta }) => {
+export const mirrorEditor: EditorFn = ({ handles, handleIndex, delta }) => {
   const [dx, dy] = delta;
   const oppositeIndex = (handleIndex + Math.floor(handles.length / 2)) % handles.length;
 
@@ -64,8 +64,8 @@ export const mirrorHandleEditor: HandleEditorFn = ({ handles, handleIndex, delta
  * Constrained: Move handle but maintain relationships with adjacent handles
  * Useful for rectangles where you want to maintain right angles
  */
-export const constrainedRectangleEditor: HandleEditorFn = ({ handles, handleIndex, delta }) => {
-  if (handles.length !== 4) return isolatedHandleEditor({ handles, handleIndex, delta } as HandleEditContext);
+export const constrainedRectangleEditor: EditorFn = ({ handles, handleIndex, delta }) => {
+  if (handles.length !== 4) return isolatedEditor({ handles, handleIndex, delta } as HandleEditContext);
 
   const [dx, dy] = delta;
   const updated = [...handles];
@@ -85,8 +85,8 @@ export const constrainedRectangleEditor: HandleEditorFn = ({ handles, handleInde
 /**
  * Circle/Ellipse: Moving edge handle updates radius while maintaining center
  */
-export const circleRadiusEditor: HandleEditorFn = ({ handles, handleIndex, delta }) => {
-  if (handles.length !== 2) return isolatedHandleEditor({ handles, handleIndex, delta } as HandleEditContext);
+export const circleRadiusEditor: EditorFn = ({ handles, handleIndex, delta }) => {
+  if (handles.length !== 2) return isolatedEditor({ handles, handleIndex, delta } as HandleEditContext);
 
   const [dx, dy] = delta;
 
@@ -113,7 +113,7 @@ export const circleRadiusEditor: HandleEditorFn = ({ handles, handleIndex, delta
 /**
  * Proportional: Scale all handles proportionally from center
  */
-export const proportionalScaleEditor: HandleEditorFn = ({ handles, handleIndex, delta }) => {
+export const proportionalScaleEditor: EditorFn = ({ handles, handleIndex, delta }) => {
   const [dx, dy] = delta;
 
   // Calculate center
@@ -140,10 +140,10 @@ export const proportionalScaleEditor: HandleEditorFn = ({ handles, handleIndex, 
   return { handles: updated };
 };
 
-export const DefaultEditModes: Record<string, HandleEditorFn> = {
-  isolated: isolatedHandleEditor,
-  symmetric: symmetricHandleEditor,
-  mirror: mirrorHandleEditor,
+export const DefaultEditModes: Record<string, EditorFn> = {
+  isolated: isolatedEditor,
+  symmetric: symmetricEditor,
+  mirror: mirrorEditor,
   rectangle: constrainedRectangleEditor,
   circle: circleRadiusEditor,
   proportional: proportionalScaleEditor,

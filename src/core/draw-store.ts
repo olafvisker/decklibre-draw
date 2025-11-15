@@ -139,7 +139,6 @@ export class DrawStore {
 
   private _syncSelectionState() {
     let changed = false;
-
     // Update selected features
     for (const id of this._selectedIds) {
       const feature = this._featureMap.get(id);

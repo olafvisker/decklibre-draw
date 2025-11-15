@@ -1,11 +1,11 @@
 export {
-  isolatedHandleEditor,
-  symmetricHandleEditor,
-  mirrorHandleEditor,
+  isolatedEditor,
+  symmetricEditor,
+  mirrorEditor,
   constrainedRectangleEditor,
   circleRadiusEditor,
   proportionalScaleEditor,
   DefaultEditModes,
-} from "./handle-editors";
+} from "./editors";
 
-export type { HandleEditContext, HandleEditResult, HandleEditorFn } from "./handle-editors";
+export type { HandleEditContext, HandleEditResult, EditorFn } from "./editors";

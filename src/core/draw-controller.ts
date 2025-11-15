@@ -17,7 +17,7 @@ import {
 import mitt from "mitt";
 import { DrawControllerEvents, DrawStoreEvents } from "./draw-events";
 import { DefaultShapeGenerators, type ShapeGeneratorFn } from "../generators/generators";
-import { DefaultEditModes, type HandleEditorFn } from "../editors";
+import { DefaultEditModes, type EditorFn } from "../editors";
 
 export interface GenerateFeatureOptions<P extends GeoJsonProperties = GeoJsonProperties> {
   id?: string | number;
@@ -36,7 +36,7 @@ export interface CursorOptions {
 export interface DrawControllerOptions {
   features?: Feature[];
   shapeGenerators?: Record<string, ShapeGeneratorFn>;
-  handleEditors?: Record<string, HandleEditorFn>;
+  editors?: Record<string, EditorFn>;
   modes?: Record<string, DrawMode>;
   initialMode?: string;
   layerIds?: string[];
@@ -62,7 +62,7 @@ export class DrawController {
   private _modeName?: string;
   private _modes: Record<string, DrawMode> = {};
   private _shapeGenerators: Record<string, ShapeGeneratorFn> = {};
-  private _handleEditors: Record<string, HandleEditorFn> = {};
+  private _editors: Record<string, EditorFn> = {};
 
   private _store: DrawStore;
   private _layerIds?: string[];
@@ -77,7 +77,7 @@ export class DrawController {
 
     this._modes = { ...DEFAULT_MODES, ...options?.modes };
     this._shapeGenerators = { ...DefaultShapeGenerators, ...options?.shapeGenerators };
-    this._handleEditors = { ...DefaultEditModes, ...options?.handleEditors };
+    this._editors = { ...DefaultEditModes, ...options?.editors };
 
     this._store = new DrawStore(this, { features: options?.features });
 
@@ -136,21 +136,21 @@ export class DrawController {
   }
 
   /** Handle Editor Registry */
-  public registerHandleEditor(name: string, editor: HandleEditorFn) {
+  public registerEditor(name: string, editor: EditorFn) {
     if (!name) throw new Error("Handle editor name is required.");
-    this._handleEditors[name] = editor;
+    this._editors[name] = editor;
   }
 
-  public unregisterHandleEditor(name: string) {
-    delete this._handleEditors[name];
+  public unregisterEditor(name: string) {
+    delete this._editors[name];
   }
 
-  public getHandleEditor(name: string): HandleEditorFn | undefined {
-    return this._handleEditors[name];
+  public getEditor(name: string): EditorFn | undefined {
+    return this._editors[name];
   }
 
-  public getRegisteredHandleEditors(): string[] {
-    return Object.keys(this._handleEditors);
+  public getRegisteredEditors(): string[] {
+    return Object.keys(this._editors);
   }
 
   /** Mode Registry */
@@ -215,7 +215,7 @@ export class DrawController {
   }
 
   /** Map helpers */
-  public setDraggability(enabled: boolean) {
+  public setPanning(enabled: boolean) {
     if (enabled) {
       this._map.dragRotate.enable();
       this._map.dragPan.enable();
@@ -366,7 +366,7 @@ export class DrawController {
   }
 
   private _reset() {
-    this.setDraggability(true);
+    this.setPanning(true);
     this.setDoubleClickZoom(true);
     this.setCursor("default");
   }

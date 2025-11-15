@@ -30,12 +30,11 @@ export class SelectMode implements DrawMode {
     this._dragging = false;
     this._dragStartCoord = undefined;
     this._dragFeatureId = undefined;
-    draw.setDraggability(true);
+    draw.setPanning(true);
     draw.store.clearSelection();
   }
 
   onClick(info: DrawInfo, draw: DrawController) {
-    console.log(info);
     const feature = info.feature;
     if (!feature?.id) {
       draw.store.clearSelection();
@@ -57,7 +56,7 @@ export class SelectMode implements DrawMode {
       this._dragging = true;
       this._dragFeatureId = featureId;
       this._dragStartCoord = [info.lng, info.lat];
-      draw.setDraggability(false);
+      draw.setPanning(false);
     }
   }
 
@@ -114,6 +113,6 @@ export class SelectMode implements DrawMode {
     this._dragging = false;
     this._dragStartCoord = undefined;
     this._dragFeatureId = undefined;
-    draw.setDraggability(true);
+    draw.setPanning(true);
   }
 }
