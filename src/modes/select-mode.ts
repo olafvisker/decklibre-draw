@@ -26,6 +26,7 @@ export class SelectMode implements DrawMode {
   }
 
   onExit(draw: DrawController) {
+    this.startSelectedId = undefined;
     this._dragging = false;
     this._dragStartCoord = undefined;
     this._dragFeatureId = undefined;

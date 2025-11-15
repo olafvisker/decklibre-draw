@@ -2,7 +2,7 @@
 import "./global.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import { Map, NavigationControl, useControl } from "react-map-gl/maplibre";
@@ -14,7 +14,6 @@ import type { EditMode, SelectMode } from "../../src/modes";
 import type { Feature } from "geojson";
 
 import {
-  CircleSmallIcon,
   HandIcon,
   MapPinIcon,
   MousePointer2Icon,
@@ -23,10 +22,10 @@ import {
   RadiusIcon,
   VectorSquare,
   WaypointsIcon,
+  ZapIcon,
 } from "lucide-react";
 
-let draw: DrawController | null = null;
-
+// DeckGL overlay wrapper for Mapbox
 interface DeckGLOverlayProps extends MapboxOverlayProps {
   onReady?: (deck: Deck, map: maplibregl.Map) => void;
 }
@@ -36,10 +35,12 @@ function DeckGLOverlay({ onReady, ...props }: DeckGLOverlayProps) {
     const handleLoad = () => onReady?.(overlay._deck, overlay._map);
     return new MapboxOverlay({ interleaved: true, onLoad: handleLoad });
   });
+
   overlay.setProps(props);
   return null;
 }
 
+// Toolbar mode definitions
 const modes: { label: string; icon: React.ReactNode; mode: string }[] = [
   { label: "Static", icon: <HandIcon size={16} />, mode: "static" },
   { label: "Select", icon: <MousePointer2Icon size={16} />, mode: "select" },
@@ -51,30 +52,37 @@ const modes: { label: string; icon: React.ReactNode; mode: string }[] = [
   { label: "Draw Rectangle", icon: <VectorSquare size={16} />, mode: "rectangle" },
 ];
 
-function Toolbar() {
-  const [activeMode, setActiveMode] = useState<string>(draw?.currentMode ?? "static");
+// Toolbar component
+function Toolbar({ draw }: { draw: DrawController }) {
+  const [activeMode, setActiveMode] = useState(draw?.currentMode ?? "static");
   const [dragWithoutSelect, setDragWithoutSelect] = useState(false);
 
   useEffect(() => {
-    setActiveMode("static");
+    if (!draw) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      const key = parseInt(e.key, 10);
-      if (!isNaN(key) && key >= 1 && key <= modes.length) {
-        const mode = modes[key - 1].mode;
-        draw?.changeMode(mode);
-        setActiveMode(mode);
+      const index = parseInt(e.key, 10);
+      if (!isNaN(index) && index >= 1 && index <= modes.length) {
+        draw.changeMode(modes[index - 1].mode);
       }
     };
+
+    const handleModeChange = ({ name }: { name: string }) => setActiveMode(name);
+
+    draw.on("mode:change", handleModeChange);
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+
+    return () => {
+      draw.off("mode:change", handleModeChange);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [draw]);
 
   const toggleDragWithoutSelect = () => {
     setDragWithoutSelect((prev) => {
       const newValue = !prev;
-      draw?.changeModeOptions<SelectMode>("select", { dragWithoutSelect: newValue });
-      draw?.changeModeOptions<EditMode>("edit", { dragWithoutSelect: newValue });
+      draw.changeModeOptions<SelectMode>("select", { dragWithoutSelect: newValue });
+      draw.changeModeOptions<EditMode>("edit", { dragWithoutSelect: newValue });
       return newValue;
     });
   };
@@ -87,32 +95,31 @@ function Toolbar() {
           className={`toolbar-btn ${mode === activeMode ? "toolbar-btn-active" : ""}`}
           title={label}
           onClick={() => {
-            draw?.changeMode(mode);
+            draw.changeMode(mode);
             setActiveMode(mode);
           }}>
           {icon}
         </button>
       ))}
-
       <button
         className={`toolbar-btn ${dragWithoutSelect ? "toolbar-btn-active" : ""}`}
         title="Drag Without Select"
         onClick={toggleDragWithoutSelect}>
-        <CircleSmallIcon size={16} className={`${dragWithoutSelect ? "icon-active" : ""}`} />
+        <ZapIcon size={16} className={dragWithoutSelect ? "icon-active" : ""} />
       </button>
     </div>
   );
 }
 
+// Main application
 function Root() {
   const [features, setFeatures] = useState<Feature[]>([]);
+  const drawRef = useRef<DrawController | null>(null);
 
   const handleLoad = (deck: Deck, map: maplibregl.Map) => {
-    draw = new DrawController(deck, map, {
-      layerIds: ["geojson-layer"],
-    });
-
+    const draw = new DrawController(deck, map, { layerIds: ["geojson-layer"] });
     draw.on("feature:change", (e) => setFeatures(e.features));
+    drawRef.current = draw;
   };
 
   const layers: LayersList = [
@@ -146,7 +153,7 @@ function Root() {
       canvasContextAttributes={{ antialias: true }}>
       <DeckGLOverlay onReady={handleLoad} layers={layers} pickingRadius={5} />
       <NavigationControl position="top-left" />
-      <Toolbar />
+      {drawRef.current && <Toolbar draw={drawRef.current} />}
     </Map>
   );
 }

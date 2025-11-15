@@ -8,14 +8,21 @@ import {
   StaticMode,
   SelectMode,
   EditMode,
-  DrawPointMode,
+  // DrawPointMode,
+  // DrawLineStringMode,
+  // DrawPolygonMode,
+  // DrawCircleMode,
+  // DrawRectangleMode,
+} from "../modes";
+import mitt from "mitt";
+import { DrawControllerEvents, DrawStoreEvents } from "./draw-events";
+import {
   DrawLineStringMode,
   DrawPolygonMode,
   DrawCircleMode,
   DrawRectangleMode,
-} from "../modes";
-import mitt from "mitt";
-import { DrawControllerEvents, DrawStoreEvents } from "./draw-events";
+  DrawPointMode,
+} from "../modes/base-draw-mode";
 
 export type CursorState = "default" | "grab" | "grabbing" | "crosshair" | "pointer" | "wait" | "move";
 

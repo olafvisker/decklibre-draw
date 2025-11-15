@@ -2,15 +2,18 @@ import { DrawMode, DrawController, DrawInfo } from "../core";
 import type { Feature, Point, Position } from "geojson";
 import { toMercator, toWgs84, point } from "@turf/turf";
 import { SelectMode } from "./select-mode";
+import { getHandleEditorForFeature, type HandleEditorFn } from "../editors/handle-editors";
 
 interface EditModeOptions {
   selectedId?: string | number;
   dragWithoutSelect?: boolean;
+  handleEditors?: Record<string, HandleEditorFn>;
 }
 
 export class EditMode implements DrawMode {
   public startSelectedId?: string | number;
   public dragWithoutSelect = false;
+  public handleEditors?: Record<string, HandleEditorFn>;
 
   private _dragging = false;
   private _dragType: "feature" | "handle" | null = null;
@@ -18,9 +21,10 @@ export class EditMode implements DrawMode {
   private _dragFeatureId?: string | number;
   private _dragHandleIndex?: number;
 
-  constructor({ selectedId, dragWithoutSelect }: EditModeOptions = {}) {
+  constructor({ selectedId, dragWithoutSelect, handleEditors }: EditModeOptions = {}) {
     this.startSelectedId = selectedId;
     if (dragWithoutSelect) this.dragWithoutSelect = dragWithoutSelect;
+    if (handleEditors) this.handleEditors = handleEditors;
   }
 
   onEnter(draw: DrawController) {
@@ -30,6 +34,7 @@ export class EditMode implements DrawMode {
   }
 
   onExit(draw: DrawController) {
+    this.startSelectedId = undefined;
     this.deselectAll(draw);
     this.resetDragState();
   }
@@ -99,7 +104,7 @@ export class EditMode implements DrawMode {
       return;
     }
 
-    // Original handle drag logic
+    // Updated handle drag logic using handle editors
     const selected = this.getSelectedFeature(draw);
     if (!this._dragging || !selected || !this._dragStartCoord) return;
 
@@ -107,7 +112,7 @@ export class EditMode implements DrawMode {
     this._dragStartCoord = [info.lng, info.lat];
 
     if (this._dragType === "handle" && typeof this._dragHandleIndex === "number") {
-      const updated = this.moveVertex(selected, this._dragHandleIndex, dx, dy, draw);
+      const updated = this.editHandle(selected, this._dragHandleIndex, dx, dy, draw);
       draw.store.updateFeature(selected.id, updated);
       this.createHandles(draw);
     }
@@ -140,17 +145,40 @@ export class EditMode implements DrawMode {
     draw.setDoubleClickZoom(false);
   }
 
-  // === Geometry Editing ===
+  // === Geometry Editing (using Handle Editors) ===
   private translateFeature(feature: Feature, dx: number, dy: number, draw: DrawController): Feature {
     const handles: Position[] = feature.properties?.handles || [];
     const moved = handles.map(([x, y]) => [x + dx, y + dy]);
     return this.regenerateFeature(draw, feature, moved);
   }
 
-  private moveVertex(feature: Feature, i: number, dx: number, dy: number, draw: DrawController): Feature {
+  /**
+   * NEW: Use handle editor system for editing individual handles
+   */
+  private editHandle(feature: Feature, handleIndex: number, dx: number, dy: number, draw: DrawController): Feature {
     const handles: Position[] = feature.properties?.handles || [];
-    const moved = handles.map((c, j) => (j === i ? [c[0] + dx, c[1] + dy] : c));
-    return this.regenerateFeature(draw, feature, moved);
+
+    // Get the appropriate editor for this feature
+    const editor = getHandleEditorForFeature(feature, this.handleEditors);
+
+    // Apply the editor
+    const result = editor({
+      feature,
+      handleIndex,
+      handles,
+      delta: [dx, dy],
+      draw,
+    });
+
+    // Regenerate feature with updated handles
+    const updated = this.regenerateFeature(draw, feature, result.handles);
+
+    // Apply any additional updates from the editor
+    if (result.additionalUpdates) {
+      Object.assign(updated, result.additionalUpdates);
+    }
+
+    return updated;
   }
 
   private insertVertex(draw: DrawController, index: number, coord: Position) {
