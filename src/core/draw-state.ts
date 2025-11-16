@@ -1,8 +1,6 @@
 import type { Feature, GeoJsonProperties, Geometry, Point, Position } from "geojson";
 import { v4 as uuid } from "uuid";
 import mitt from "mitt";
-import { DrawStoreEvents } from "./draw-events";
-import { DrawController } from "./draw-controller";
 
 export type DrawFeature = Feature<Geometry, DrawProperties>;
 export type HandleFeature = Feature<Point, HandleProperties>;
@@ -21,26 +19,26 @@ export type HandleProperties = GeoJsonProperties & {
   index: number;
 };
 
-export interface GenerateFeatureOptions<P extends GeoJsonProperties = GeoJsonProperties> {
-  id?: string | number;
-  props?: P;
-  shapeGeneratorOptions?: Record<string, unknown>;
-}
+export type DrawStateEvents = {
+  "feature:add": { features: Feature[] };
+  "feature:remove": { ids: (string | number)[] };
+  "feature:update": { features: Feature[] };
+  "feature:change": { features: Feature[] };
+  "selection:change": { selectedIds: (string | number)[] };
+};
 
-export interface DrawStoreOptions {
+export interface DrawStateOptions {
   features?: Feature[];
 }
 
-export class DrawStore {
-  private _draw: DrawController;
-  private _emitter = mitt<DrawStoreEvents>();
+export class DrawState {
+  private _emitter = mitt<DrawStateEvents>();
 
   private _featureMap: Map<string | number, Feature> = new Map();
   private _handleMap: Map<string | number, HandleFeature[]> = new Map();
   private _selectedFeatureIds = new Set<string | number>();
 
-  constructor(draw: DrawController, options?: DrawStoreOptions) {
-    this._draw = draw;
+  constructor(options?: DrawStateOptions) {
     if (options?.features) this.addFeatures(options.features);
   }
 
@@ -66,7 +64,7 @@ export class DrawStore {
     if (!features.length) return;
     for (const f of features) {
       if (f.id === undefined) continue;
-      this._featureMap.set(f.id!.toString(), f);
+      this._featureMap.set(f.id!, f);
       added.push(f);
     }
     this._emit("feature:add", { features: added });
@@ -107,23 +105,7 @@ export class DrawStore {
     this._emit("feature:change", { features: this.features });
   }
 
-  /** Generator */
-  public generateFeature(name: string, points: Position[], options?: GenerateFeatureOptions) {
-    const generator = this._draw.getGenerator(name);
-    const feature = generator?.(this._draw, points, options?.shapeGeneratorOptions);
-    if (!feature) return;
-    feature.id = options?.id || feature.id || uuid();
-    feature.properties = {
-      ...feature.properties,
-      mode: "",
-      generator: name,
-      handles: points,
-      ...options?.props,
-    } as DrawProperties;
-    return feature;
-  }
-
-  // --- Control Point Management ---
+  // --- Handle Management ---
   public createHandle(
     featureId: string | number,
     coord: Position,
@@ -146,7 +128,7 @@ export class DrawStore {
   public clearHandles(featureId: string | number) {
     const handle = this._handleMap.get(featureId);
     if (handle) {
-      this.removeFeatures(handle.map((h) => h.id!.toString()));
+      this.removeFeatures(handle.map((h) => h.id!));
       this._handleMap.delete(featureId);
     }
   }
@@ -177,25 +159,14 @@ export class DrawStore {
 
   private _syncSelectionState() {
     let changed = false;
-
-    // Update selected features
-    for (const id of this._selectedFeatureIds) {
-      const feature = this._featureMap.get(id) as DrawFeature;
-      if (feature && feature.properties.selected !== true) {
-        feature.properties.selected = true;
+    for (const feature of this._featureMap.values()) {
+      const f = feature as DrawFeature;
+      const selected = this._selectedFeatureIds.has(f.id!);
+      if (f.properties.selected !== selected) {
+        f.properties.selected = selected;
         changed = true;
       }
     }
-
-    // Update unselected features
-    for (const f of this._featureMap.values()) {
-      const feature = f as DrawFeature;
-      if (feature.properties.selected && !this._selectedFeatureIds.has(feature.id!.toString())) {
-        feature.properties.selected = false;
-        changed = true;
-      }
-    }
-
     if (changed) {
       this._emit("selection:change", { selectedIds: this.selectedIds });
       this._emit("feature:update", { features: this.features });

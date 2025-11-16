@@ -1,16 +1,16 @@
 import { DrawMode, DrawController, DrawInfo, HandleProperties } from "../core";
-import type { Feature, Point, Position } from "geojson";
+import type { Feature, Position } from "geojson";
 import { toMercator, toWgs84, point } from "@turf/turf";
 import { SelectMode } from "./select-mode";
-import { type EditorFn } from "../editors/editors";
 
 interface EditModeOptions {
   selectedId?: string | number;
   dragWithoutSelect?: boolean;
-  editors?: Record<string, EditorFn>;
 }
 
 export class EditMode implements DrawMode {
+  readonly name = "edit";
+
   public startSelectedId?: string | number;
   public dragWithoutSelect = false;
 
@@ -155,31 +155,23 @@ export class EditMode implements DrawMode {
    */
   private editHandle(feature: Feature, handleIndex: number, dx: number, dy: number, draw: DrawController): Feature {
     const handles: Position[] = feature.properties?.handles || [];
+    const mode = draw.getMode(feature.properties?.mode);
 
-    // Get editor from controller's registry
-    const editor = this.getEditorForFeature(feature, draw);
-
-    const result = editor({
-      feature,
-      handleIndex,
-      handles,
-      delta: [dx, dy],
-      draw,
-    });
-
-    const updated = this.regenerateFeature(draw, feature, result.handles);
-
-    if (result.additionalUpdates) {
-      Object.assign(updated, result.additionalUpdates);
+    let newHandles: Position[];
+    if (mode?.edit) {
+      newHandles = mode.edit({
+        feature,
+        handleIndex,
+        handles,
+        delta: [dx, dy],
+        draw,
+      });
+    } else {
+      // Fallback: isolated editing
+      newHandles = handles.map((coord, i) => (i === handleIndex ? [coord[0] + dx, coord[1] + dy] : coord));
     }
-
-    return updated;
-  }
-
-  private getEditorForFeature(feature: Feature, draw: DrawController): EditorFn {
-    const editor = draw.getEditor(feature.properties?.editor);
-    if (editor) return editor;
-    return draw.getEditor("isolated")!;
+    const newFeature = this.regenerateFeature(draw, feature, newHandles);
+    return newFeature;
   }
 
   private insertVertex(draw: DrawController, index: number, coord: Position) {
@@ -218,13 +210,11 @@ export class EditMode implements DrawMode {
     }
   }
 
-  private makeMidpoint(a: Position, b: Position, i: number, draw: DrawController): Feature<Point> {
+  private makeMidpoint(a: Position, b: Position, i: number, draw: DrawController) {
     const ma = toMercator(point(a)).geometry.coordinates;
     const mb = toMercator(point(b)).geometry.coordinates;
     const mid = toWgs84(point([(ma[0] + mb[0]) / 2, (ma[1] + mb[1]) / 2])).geometry.coordinates;
-
-    const handle = draw.store.createHandle(this.getSelectedFeature(draw)!.id!, mid, i, true);
-    return handle;
+    draw.store.createHandle(this.getSelectedFeature(draw)!.id!, mid, i, true);
   }
 
   // === Selection ===
@@ -242,12 +232,15 @@ export class EditMode implements DrawMode {
 
   // === Core helper ===
   private regenerateFeature(draw: DrawController, feature: Feature, coords: Position[]): Feature {
-    const generatorName = feature.properties?.generator;
+    const modeName = feature.properties?.mode;
     const props = { ...feature.properties, handles: coords };
 
-    if (generatorName) {
-      const regenerated = draw.store.generateFeature(generatorName, coords, { id: feature.id, props });
-      return regenerated || feature;
+    if (modeName) {
+      const mode = draw.getMode(modeName);
+      if (mode) {
+        const regenerated = mode.generate?.(draw, coords, feature.id, props);
+        if (regenerated) return regenerated;
+      }
     }
 
     return {

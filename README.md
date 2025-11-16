@@ -2,7 +2,7 @@
 
 ![Tool](assets/tool.gif)
 
-**decklibre-draw** is a lightweight library for drawing and editing geometries on **Deck.gl** and **MapLibre GL**. Loosely inspired by `mapbox-gl-draw`, shapes are defined by **feature generators**, which separate editable points (handles) from the shapes themselves.
+**decklibre-draw** is a lightweight library for drawing and editing geometries on **Deck.gl** and **MapLibre GL**. Modes define a **feature generator** and a **handle edit** function, which separate editable points (handles) from the final shapes themselves.
 
 - Draw and edit points, lines, polygons, circles, and rectangles
 - Custom feature generators allow creating new types of geometries
@@ -28,7 +28,7 @@ const deck = new Deck({...});
 const controller = new DrawController(deck, map, {
   initialMode: "select",
   modes: {
-    select: new SimpleSelectMode({ dragWithoutSelect: true }),
+    select: new SelectMode({ dragWithoutSelect: true }),
     custom: new CustomDrawMode(),
     ...DEFAULT_MODES
   }
@@ -38,8 +38,8 @@ draw.on("feature:change", (e) => console.log(e.features));
 
 // Switch modes, switch & update options, update options
 controller.changeMode("circle");
-controller.changeMode<SimpleSelectMode>("select", { dragWithoutSelect: false });
-controller.changeModeOptions<SimpleSelectMode>("select", { dragWithoutSelect: true });
+controller.changeMode<SelectMode>("select", { dragWithoutSelect: false });
+controller.changeModeOptions<SelectMode>("select", { dragWithoutSelect: true });
 ```
 
 ### Default Modes
@@ -74,10 +74,10 @@ controller.changeModeOptions<SimpleSelectMode>("select", { dragWithoutSelect: tr
 
 #### Mode Events
 
-| Event          | Payload                                                           | Description                                        |
-| -------------- | ----------------------------------------------------------------- | -------------------------------------------------- |
-| `mode:change`  | `{ name: string; mode: DrawMode; options?: Record<string, any> }` | Fired when the draw mode changes                   |
-| `mode:options` | `{ name: string; mode: DrawMode; options: Record<string, any> }`  | Fired when options of the current mode are updated |
+| Event          | Payload                                           | Description                                        |
+| -------------- | ------------------------------------------------- | -------------------------------------------------- |
+| `mode:change`  | `{ name: string; options?: Record<string, any> }` | Fired when the draw mode changes                   |
+| `mode:options` | `{ name: string; options: Record<string, any> }`  | Fired when options of the current mode are updated |
 
 ### Creating Custom Modes
 
@@ -93,13 +93,24 @@ export interface DrawInfo {
 }
 
 export interface DrawMode {
-  onEnter?: (draw: DrawController) => void; // Called when the mode becomes active
-  onExit?: (draw: DrawController) => void; // Called when the mode is exited
+  readonly name: string;
+
+  onEnter?: (draw: DrawController) => void;
+  onExit?: (draw: DrawController) => void;
 
   onClick?: (info: DrawInfo, draw: DrawController) => void;
   onDoubleClick?: (info: DrawInfo, draw: DrawController) => void;
   onMouseMove?: (info: DrawInfo, draw: DrawController) => void;
   onMouseDown?: (info: DrawInfo, draw: DrawController) => void;
   onMouseUp?: (info: DrawInfo, draw: DrawController) => void;
+
+  generate?(
+    draw: DrawController,
+    points: Position[],
+    id?: string | number,
+    props?: Record<string, unknown>
+  ): Feature | undefined;
+
+  edit?(context: EditContext): Position[];
 }
 ```

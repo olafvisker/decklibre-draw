@@ -1,9 +1,9 @@
 import type { Deck } from "@deck.gl/core";
 import type { Feature, GeoJsonProperties, Position } from "geojson";
 import type { DrawInfo, DrawMode } from "./draw-mode";
-import { DrawStore } from "./draw-store";
+import { DrawState, DrawStateEvents } from "./draw-state";
 import { v4 as uuid } from "uuid";
-import { Map as MaplibreMap, PointLike } from "maplibre-gl";
+import { Map as MaplibreMap, MapMouseEvent, MapTouchEvent, PointLike } from "maplibre-gl";
 import {
   StaticMode,
   SelectMode,
@@ -15,9 +15,6 @@ import {
   DrawPointMode,
 } from "../modes";
 import mitt from "mitt";
-import { DrawControllerEvents, DrawStoreEvents } from "./draw-events";
-import { DefaultShapeGenerators, type GeneratorFn } from "../generators/generators";
-import { DefaultEditModes, type EditorFn } from "../editors";
 
 export type CursorState = "default" | "grab" | "grabbing" | "crosshair" | "pointer" | "wait" | "move";
 
@@ -29,13 +26,16 @@ export interface CursorOptions {
 
 export interface DrawControllerOptions {
   features?: Feature[];
-  shapeGenerators?: Record<string, GeneratorFn>;
-  editors?: Record<string, EditorFn>;
   modes?: Record<string, DrawMode>;
   initialMode?: string;
   layerIds?: string[];
   warmUp?: boolean;
 }
+
+export type DrawControllerEvents = DrawStateEvents & {
+  "mode:change": { name: string; options?: Record<string, any> };
+  "mode:options": { name: string; options: Record<string, any> };
+};
 
 export const DEFAULT_MODES: Record<string, DrawMode> = {
   static: new StaticMode(),
@@ -55,25 +55,20 @@ export class DrawController {
   private _mode?: DrawMode;
   private _modeName?: string;
   private _modes: Record<string, DrawMode> = {};
-  private _generators: Record<string, GeneratorFn> = {};
-  private _editors: Record<string, EditorFn> = {};
 
-  private _store: DrawStore;
+  private _store: DrawState;
   private _layerIds?: string[];
 
   private _panning = false;
   private _warmUpEnabled: boolean;
   private _emitter = mitt<DrawControllerEvents>();
 
-  constructor(deck: Deck, map: maplibregl.Map, options?: DrawControllerOptions) {
+  constructor(deck: Deck, map: MaplibreMap, options?: DrawControllerOptions) {
     this._deck = deck;
     this._map = map;
 
+    this._store = new DrawState({ features: options?.features });
     this._modes = { ...DEFAULT_MODES, ...options?.modes };
-    this._generators = { ...DefaultShapeGenerators, ...options?.shapeGenerators };
-    this._editors = { ...DefaultEditModes, ...options?.editors };
-
-    this._store = new DrawStore(this, { features: options?.features });
 
     this._layerIds = options?.layerIds;
     this._warmUpEnabled = options?.warmUp ?? true;
@@ -107,21 +102,15 @@ export class DrawController {
     return this._mode;
   }
 
-  public get store(): DrawStore {
+  public get store(): DrawState {
     return this._store;
   }
 
-  /** Shape Generator Registry */
-  public getGenerator(name: string): GeneratorFn | undefined {
-    return this._generators[name];
-  }
-
-  /** Handle Editor Registry */
-  public getEditor(name: string): EditorFn | undefined {
-    return this._editors[name];
-  }
-
   /** Mode Registry */
+  public getMode(name: string): DrawMode | undefined {
+    return this._modes[name];
+  }
+
   public registerMode(name: string, instance: DrawMode) {
     if (!name) throw new Error("Mode name is required.");
     this._modes[name] = instance;
@@ -154,16 +143,16 @@ export class DrawController {
 
     this._mode.onEnter?.(this);
 
-    this._emit("mode:change", { name, mode, options });
+    this._emit("mode:change", { name, options });
     return mode;
   }
 
-  public changeModeOptions<T extends DrawMode | unknown = DrawMode>(name: string, options: Partial<T>): void {
+  public changeModeOptions<T extends DrawMode>(name: string, options: Partial<T>): void {
     const mode = this._modes[name] as T | undefined;
     if (!mode) throw new Error(`Mode "${name}" is not registered.`);
     Object.assign(mode, options);
 
-    this._emit("mode:options", { name, mode, options });
+    this._emit("mode:options", { name, options });
   }
 
   /** Cursor handling */
@@ -220,7 +209,7 @@ export class DrawController {
     this._map.on("click", this._onClick);
     this._map.on("dblclick", this._onDoubleClick);
 
-    const events: (keyof DrawStoreEvents)[] = [
+    const events: (keyof DrawStateEvents)[] = [
       "feature:add",
       "feature:remove",
       "feature:update",
@@ -289,16 +278,11 @@ export class DrawController {
     });
   };
 
-  private _onMouseDown = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) =>
-    this._mode?.onMouseDown?.(this._buildInfo(e), this);
-  private _onMouseMove = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) =>
-    this._mode?.onMouseMove?.(this._buildInfo(e), this);
-  private _onMouseUp = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) =>
-    this._mode?.onMouseUp?.(this._buildInfo(e), this);
-  private _onClick = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) =>
-    this._mode?.onClick?.(this._buildInfo(e), this);
-  private _onDoubleClick = (e: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent) =>
-    this._mode?.onDoubleClick?.(this._buildInfo(e), this);
+  private _onMouseDown = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onMouseDown?.(this._buildInfo(e), this);
+  private _onMouseMove = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onMouseMove?.(this._buildInfo(e), this);
+  private _onMouseUp = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onMouseUp?.(this._buildInfo(e), this);
+  private _onClick = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onClick?.(this._buildInfo(e), this);
+  private _onDoubleClick = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onDoubleClick?.(this._buildInfo(e), this);
 
   private _onPanStart = () => {
     this._panning = true;
@@ -308,7 +292,7 @@ export class DrawController {
     this._panning = false;
   };
 
-  private _buildInfo(event: maplibregl.MapMouseEvent | maplibregl.MapTouchEvent): DrawInfo {
+  private _buildInfo(event: MapMouseEvent | MapTouchEvent): DrawInfo {
     const { x, y } = event.point;
     const { lng, lat } = event.lngLat;
     const picked = this._deck.pickObject({ x, y, layerIds: this._layerIds, radius: this._deck.props.pickingRadius });

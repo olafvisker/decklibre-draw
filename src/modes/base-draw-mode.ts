@@ -1,18 +1,14 @@
-import { DrawMode, DrawController, DrawInfo } from "../core";
-import type { Position } from "geojson";
+import { DrawMode, DrawController, DrawInfo, EditContext } from "../core";
+import type { Feature, Position } from "geojson";
 
 export interface BaseDrawModeConfig {
-  shape: {
-    generator: string;
-    generatorOptions?: Record<string, unknown>;
-    editor?: string;
-  };
   pointCount?: number;
   handleDisplay?: "none" | "first" | "last" | "first-last" | "all";
-  featureProps?: Record<string, unknown>;
 }
 
-export class BaseDrawMode implements DrawMode {
+export abstract class BaseDrawMode implements DrawMode {
+  abstract readonly name: string;
+
   protected config: BaseDrawModeConfig;
   protected coordinates: Position[] = [];
   protected featureId?: string | number;
@@ -53,7 +49,7 @@ export class BaseDrawMode implements DrawMode {
       return;
     }
 
-    this.updateShape(draw, this.coordinates);
+    this.updateShape(draw, this.coordinates, { preview: true });
     this.updateHandles(draw);
   }
 
@@ -64,25 +60,26 @@ export class BaseDrawMode implements DrawMode {
   onMouseMove(info: DrawInfo, draw: DrawController) {
     if (!this.featureId || this.coordinates.length === 0) return;
     const previewCoords = [...this.coordinates, [info.lng, info.lat]];
-    this.updateShape(draw, previewCoords);
+    this.updateShape(draw, previewCoords, { preview: true });
   }
 
-  protected generateFeature(draw: DrawController, points: Position[], props?: Record<string, unknown>) {
-    return draw.store.generateFeature(this.config.shape.generator, points, {
-      id: this.featureId,
-      props: {
-        selected: true,
-        editor: this.config.shape.editor,
-        ...this.config.featureProps,
-        ...props,
-      },
-      shapeGeneratorOptions: this.config.shape.generatorOptions,
-    });
+  abstract generate(
+    draw: DrawController,
+    points: Position[],
+    id?: string | number,
+    props?: Record<string, unknown>
+  ): Feature | undefined;
+
+  edit?(context: EditContext): Position[] {
+    const { handles, handleIndex, delta } = context;
+    const [dx, dy] = delta;
+    const newHandles = handles.map((coord, i) => (i === handleIndex ? [coord[0] + dx, coord[1] + dy] : coord));
+    return newHandles;
   }
 
   protected createInitialFeature(draw: DrawController, coord: Position) {
     const initialCoords = this.config.pointCount === 1 ? [coord] : [coord, coord];
-    const feature = this.generateFeature(draw, initialCoords);
+    const feature = this.generate(draw, initialCoords);
     if (!feature) return;
 
     this.featureId = feature.id;
@@ -93,7 +90,7 @@ export class BaseDrawMode implements DrawMode {
 
   protected updateShape(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
     if (!this.featureId) return;
-    const feature = this.generateFeature(draw, coords, props);
+    const feature = this.generate(draw, coords, this.featureId, props);
     if (!feature) return;
     draw.store.updateFeature(this.featureId, feature);
   }
@@ -134,7 +131,7 @@ export class BaseDrawMode implements DrawMode {
 
   protected finishShape(draw: DrawController) {
     if (!this.featureId) return;
-    this.updateShape(draw, this.coordinates, { selected: false });
+    this.updateShape(draw, this.coordinates, { preview: false });
     draw.store.clearHandles(this.featureId);
     this.reset(draw);
   }
@@ -145,55 +142,5 @@ export class BaseDrawMode implements DrawMode {
     }
     this.coordinates = [];
     this.featureId = undefined;
-  }
-}
-
-// Concrete mode classes for common shapes
-export class DrawPointMode extends BaseDrawMode {
-  constructor() {
-    super({
-      shape: { generator: "point" },
-      pointCount: 1,
-    });
-  }
-}
-
-export class DrawLineStringMode extends BaseDrawMode {
-  constructor() {
-    super({
-      shape: { generator: "line" },
-      handleDisplay: "last",
-    });
-  }
-}
-
-export class DrawPolygonMode extends BaseDrawMode {
-  constructor() {
-    super({
-      shape: { generator: "polygon" },
-      handleDisplay: "first-last",
-    });
-  }
-}
-
-export class DrawCircleMode extends BaseDrawMode {
-  constructor({ geodesic = true }: { geodesic?: boolean } = {}) {
-    super({
-      shape: { generator: "circle", generatorOptions: { geodesic } },
-      pointCount: 2,
-      handleDisplay: "first",
-      featureProps: { insertable: false },
-    });
-  }
-}
-
-export class DrawRectangleMode extends BaseDrawMode {
-  constructor() {
-    super({
-      shape: { generator: "rect" },
-      pointCount: 2,
-      handleDisplay: "first",
-      featureProps: { insertable: false },
-    });
   }
 }

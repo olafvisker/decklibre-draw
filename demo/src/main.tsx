@@ -131,11 +131,11 @@ function Root() {
       getFillColor: (f: Feature) => {
         if (f.properties?.handle || f.properties?.midpoint) return [251, 176, 59, 255];
         const opacity = f.geometry.type === "Point" ? 255 : 25;
-        return f.properties?.selected ? [251, 176, 59, opacity] : [59, 178, 208, opacity];
+        return f.properties?.selected || f.properties?.preview ? [251, 176, 59, opacity] : [59, 178, 208, opacity];
       },
       getLineColor: (f: Feature) => {
         if (f.geometry.type === "Point" || f.properties?.handle) return [255, 255, 255, 255];
-        return f.properties?.selected ? [251, 176, 59, 255] : [59, 178, 208, 255];
+        return f.properties?.selected || f.properties?.preview ? [251, 176, 59, 255] : [59, 178, 208, 255];
       },
       getLineWidth: (f) => (f.properties?.midpoint ? 0 : 2),
       getPointRadius: (f) => (f.properties?.midpoint ? 3 : 4),

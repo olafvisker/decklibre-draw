@@ -8,6 +8,8 @@ interface SelectModeOptions {
 }
 
 export class SelectMode implements DrawMode {
+  readonly name = "select";
+
   public startSelectedId?: string | number;
   public dragWithoutSelect = false;
 
@@ -71,39 +73,11 @@ export class SelectMode implements DrawMode {
 
     const handles: Position[] = feature.properties?.handles || [];
 
-    if (feature.properties?.generator && handles.length > 0) {
-      // Regenerate feature via generator
+    const mode = draw.getMode(feature.properties?.mode);
+    if (mode) {
       const movedHandles = handles.map(([x, y]) => [x + dx, y + dy]);
-
-      const updated = draw.store.generateFeature(feature.properties?.generator, movedHandles, {
-        id: feature.id,
-        props: { ...feature.properties, handles: movedHandles },
-      });
+      const updated = mode.generate?.(draw, movedHandles, feature.id, { ...feature.properties, handles: movedHandles });
       if (updated) draw.store.updateFeature(feature.id, updated);
-    } else {
-      // Fallback: simple coordinate translation
-      const translate = ([x, y, ...rest]: Position): Position => [x + dx, y + dy, ...rest];
-      const geom = feature.geometry;
-      let newGeom: typeof geom;
-
-      switch (geom.type) {
-        case "Point":
-          newGeom = { ...geom, coordinates: translate(geom.coordinates) };
-          break;
-        case "LineString":
-          newGeom = { ...geom, coordinates: geom.coordinates.map(translate) };
-          break;
-        case "Polygon":
-          newGeom = { ...geom, coordinates: geom.coordinates.map((ring) => ring.map(translate)) };
-          break;
-        default:
-          newGeom = geom;
-      }
-
-      draw.store.updateFeature(feature.id, {
-        ...feature,
-        geometry: newGeom,
-      });
     }
 
     this._dragStartCoord = [info.lng, info.lat];
