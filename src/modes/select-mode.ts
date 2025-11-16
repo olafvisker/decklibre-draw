@@ -24,7 +24,7 @@ export class SelectMode implements DrawMode {
 
   onEnter(draw: DrawController) {
     draw.setCursor({ default: "default", hover: "pointer" });
-    if (this.startSelectedId) draw.store.setSelected(this.startSelectedId);
+    if (this.startSelectedId) draw.state.setSelected(this.startSelectedId);
   }
 
   onExit(draw: DrawController) {
@@ -33,20 +33,20 @@ export class SelectMode implements DrawMode {
     this._dragStartCoord = undefined;
     this._dragFeatureId = undefined;
     draw.setPanning(true);
-    draw.store.clearSelection();
+    draw.state.clearSelection();
   }
 
   onClick(info: DrawInfo, draw: DrawController) {
     const feature = info.feature;
     if (!feature?.id) {
-      draw.store.clearSelection();
+      draw.state.clearSelection();
       return;
     }
 
-    if (draw.store.isSelected(feature.id)) {
+    if (draw.state.isSelected(feature.id)) {
       draw.changeMode<EditMode>("edit", { startSelectedId: feature.id });
     } else {
-      draw.store.setSelected(feature.id);
+      draw.state.setSelected(feature.id);
     }
   }
 
@@ -54,7 +54,7 @@ export class SelectMode implements DrawMode {
     const featureId = info.feature?.id;
     if (!featureId) return;
 
-    if (this.dragWithoutSelect || draw.store.isSelected(featureId)) {
+    if (this.dragWithoutSelect || draw.state.isSelected(featureId)) {
       this._dragging = true;
       this._dragFeatureId = featureId;
       this._dragStartCoord = [info.lng, info.lat];
@@ -68,7 +68,7 @@ export class SelectMode implements DrawMode {
     const dx = info.lng - this._dragStartCoord[0];
     const dy = info.lat - this._dragStartCoord[1];
 
-    const feature = draw.store.getFeature(this._dragFeatureId);
+    const feature = draw.state.getFeature(this._dragFeatureId);
     if (!feature || !feature.id) return;
 
     const handles: Position[] = feature.properties?.handles || [];
@@ -77,7 +77,7 @@ export class SelectMode implements DrawMode {
     if (mode) {
       const movedHandles = handles.map(([x, y]) => [x + dx, y + dy]);
       const updated = mode.generate?.(draw, movedHandles, feature.id, { ...feature.properties, handles: movedHandles });
-      if (updated) draw.store.updateFeature(feature.id, updated);
+      if (updated) draw.state.updateFeature(feature.id, updated);
     }
 
     this._dragStartCoord = [info.lng, info.lat];

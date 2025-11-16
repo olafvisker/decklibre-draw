@@ -20,12 +20,12 @@ import {
   MousePointerClickIcon,
   PentagonIcon,
   RadiusIcon,
+  Trash2Icon,
   VectorSquare,
   WaypointsIcon,
   ZapIcon,
 } from "lucide-react";
 
-// DeckGL overlay wrapper for Mapbox
 interface DeckGLOverlayProps extends MapboxOverlayProps {
   onReady?: (deck: Deck, map: maplibregl.Map) => void;
 }
@@ -40,7 +40,6 @@ function DeckGLOverlay({ onReady, ...props }: DeckGLOverlayProps) {
   return null;
 }
 
-// Toolbar mode definitions
 const modes: { label: string; icon: React.ReactNode; mode: string }[] = [
   { label: "Static", icon: <HandIcon size={16} />, mode: "static" },
   { label: "Select", icon: <MousePointer2Icon size={16} />, mode: "select" },
@@ -52,8 +51,7 @@ const modes: { label: string; icon: React.ReactNode; mode: string }[] = [
   { label: "Draw Rectangle", icon: <VectorSquare size={16} />, mode: "rectangle" },
 ];
 
-// Toolbar component
-function Toolbar({ draw }: { draw: DrawController }) {
+function Toolbar({ draw }: { draw?: DrawController }) {
   const [activeMode, setActiveMode] = useState(draw?.currentMode ?? "static");
   const [dragWithoutSelect, setDragWithoutSelect] = useState(false);
 
@@ -81,10 +79,17 @@ function Toolbar({ draw }: { draw: DrawController }) {
   const toggleDragWithoutSelect = () => {
     setDragWithoutSelect((prev) => {
       const newValue = !prev;
-      draw.changeModeOptions<SelectMode>("select", { dragWithoutSelect: newValue });
-      draw.changeModeOptions<EditMode>("edit", { dragWithoutSelect: newValue });
+      draw?.changeModeOptions<SelectMode>("select", { dragWithoutSelect: newValue });
+      draw?.changeModeOptions<EditMode>("edit", { dragWithoutSelect: newValue });
       return newValue;
     });
+  };
+
+  const deleteSelected = () => {
+    const selectedIds = draw?.state.selectedIds;
+    if (selectedIds && selectedIds.length > 0) {
+      draw?.state.removeFeatures(selectedIds);
+    }
   };
 
   return (
@@ -95,12 +100,19 @@ function Toolbar({ draw }: { draw: DrawController }) {
           className={`toolbar-btn ${mode === activeMode ? "toolbar-btn-active" : ""}`}
           title={label}
           onClick={() => {
-            draw.changeMode(mode);
+            draw?.changeMode(mode);
             setActiveMode(mode);
           }}>
           {icon}
         </button>
       ))}
+      <button
+        className="toolbar-btn"
+        title="Delete Selected"
+        disabled={!draw?.state.selectedIds.length}
+        onClick={deleteSelected}>
+        <Trash2Icon size={16} />
+      </button>
       <button
         className={`toolbar-btn ${dragWithoutSelect ? "toolbar-btn-active" : ""}`}
         title="Drag Without Select"
@@ -128,22 +140,31 @@ function Root() {
       data: { type: "FeatureCollection", features },
       stroked: true,
       filled: true,
-      getFillColor: (f: Feature) => {
-        if (f.properties?.handle || f.properties?.midpoint) return [251, 176, 59, 255];
-        const opacity = f.geometry.type === "Point" ? 255 : 25;
-        return f.properties?.selected || f.properties?.preview ? [251, 176, 59, opacity] : [59, 178, 208, opacity];
-      },
-      getLineColor: (f: Feature) => {
-        if (f.geometry.type === "Point" || f.properties?.handle) return [255, 255, 255, 255];
-        return f.properties?.selected || f.properties?.preview ? [251, 176, 59, 255] : [59, 178, 208, 255];
-      },
-      getLineWidth: (f) => (f.properties?.midpoint ? 0 : 2),
-      getPointRadius: (f) => (f.properties?.midpoint ? 3 : 4),
+      pickable: true,
+      pointBillboard: true,
       pointRadiusUnits: "pixels",
       lineWidthUnits: "pixels",
-      pointBillboard: true,
-      pickable: true,
       parameters: { depthWriteEnabled: false },
+
+      getFillColor: (f: Feature) => {
+        const { handle, midpoint, selected, preview } = f.properties || {};
+        const isPoint = f.geometry.type === "Point";
+        if (handle || midpoint) return [251, 176, 59, 255];
+
+        const opacity = isPoint ? 255 : 25;
+        const active = selected || preview;
+        return active ? [251, 176, 59, opacity] : [59, 178, 208, opacity];
+      },
+
+      getLineColor: (f: Feature) => {
+        const { handle, selected, preview } = f.properties || {};
+        if (f.geometry.type === "Point" || handle) return [255, 255, 255, 255];
+        const active = selected || preview;
+        return active ? [251, 176, 59, 255] : [59, 178, 208, 255];
+      },
+
+      getLineWidth: (f: Feature) => (f.properties?.midpoint ? 0 : 2),
+      getPointRadius: (f: Feature) => (f.properties?.midpoint ? 3 : 4),
     }),
   ];
 
@@ -153,7 +174,7 @@ function Root() {
       canvasContextAttributes={{ antialias: true }}>
       <DeckGLOverlay onReady={handleLoad} layers={layers} pickingRadius={5} />
       <NavigationControl position="top-left" />
-      {drawRef.current && <Toolbar draw={drawRef.current} />}
+      <Toolbar draw={drawRef.current} />
     </Map>
   );
 }

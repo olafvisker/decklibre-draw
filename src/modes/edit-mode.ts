@@ -28,7 +28,7 @@ export class EditMode implements DrawMode {
 
   onEnter(draw: DrawController) {
     draw.setCursor({ default: "default", hover: "pointer" });
-    if (this.startSelectedId) draw.store.setSelected(this.startSelectedId);
+    if (this.startSelectedId) draw.state.setSelected(this.startSelectedId);
     this.createHandles(draw);
   }
 
@@ -53,7 +53,7 @@ export class EditMode implements DrawMode {
       return;
     }
 
-    if (!draw.store.isSelected(f.id)) {
+    if (!draw.state.isSelected(f.id)) {
       draw.changeMode<SelectMode>("select", { startSelectedId: f.id });
     }
   }
@@ -64,7 +64,7 @@ export class EditMode implements DrawMode {
 
     const { handle, midpoint, index } = (f.properties as HandleProperties) || {};
 
-    if (this.dragWithoutSelect || draw.store.isSelected(f.id)) {
+    if (this.dragWithoutSelect || draw.state.isSelected(f.id)) {
       if (!handle && !midpoint) {
         this._dragging = true;
         this._dragFeatureId = f.id;
@@ -86,17 +86,17 @@ export class EditMode implements DrawMode {
     }
 
     if (handle) return this.startDrag("handle", info, index, draw);
-    if (draw.store.isSelected(f.id)) this.startDrag("feature", info, undefined, draw);
+    if (draw.state.isSelected(f.id)) this.startDrag("feature", info, undefined, draw);
   }
 
   onMouseMove(info: DrawInfo, draw: DrawController) {
     if (this._dragging && this._dragFeatureId && this._dragStartCoord && this._dragType === "feature") {
-      const feature = draw.store.getFeature(this._dragFeatureId);
+      const feature = draw.state.getFeature(this._dragFeatureId);
       if (!feature || !feature.id) return;
 
       const [dx, dy] = [info.lng - this._dragStartCoord[0], info.lat - this._dragStartCoord[1]];
       const updated = this.translateFeature(feature, dx, dy, draw);
-      draw.store.updateFeature(feature.id, updated);
+      draw.state.updateFeature(feature.id, updated);
 
       this._dragStartCoord = [info.lng, info.lat];
       this.createHandles(draw);
@@ -112,7 +112,7 @@ export class EditMode implements DrawMode {
 
     if (this._dragType === "handle" && typeof this._dragHandleIndex === "number") {
       const updated = this.editHandle(selected, this._dragHandleIndex, dx, dy, draw);
-      draw.store.updateFeature(selected.id, updated);
+      draw.state.updateFeature(selected.id, updated);
       this.createHandles(draw);
     }
   }
@@ -176,17 +176,17 @@ export class EditMode implements DrawMode {
     updatedHandles.splice(index + 1, 0, coord);
 
     const updated = this.regenerateFeature(draw, selected, updatedHandles);
-    draw.store.updateFeature(selected.id, updated);
+    draw.state.updateFeature(selected.id, updated);
   }
 
   // === Handle Management ===
   private createHandles(draw: DrawController) {
     const selected = this.getSelectedFeature(draw);
     if (!selected?.id) return;
-    draw.store.clearHandles(selected.id);
+    draw.state.clearHandles(selected.id);
 
     const coords: Position[] = selected.properties?.handles || [];
-    coords.map((c, i) => draw.store.createHandle(selected.id!, c, i));
+    coords.map((c, i) => draw.state.createHandle(selected.id!, c, i));
 
     if (selected.properties?.insertable !== false) {
       this.makeMidpoints(coords, selected.geometry.type === "Polygon", draw);
@@ -207,20 +207,20 @@ export class EditMode implements DrawMode {
     const ma = toMercator(point(a)).geometry.coordinates;
     const mb = toMercator(point(b)).geometry.coordinates;
     const mid = toWgs84(point([(ma[0] + mb[0]) / 2, (ma[1] + mb[1]) / 2])).geometry.coordinates;
-    draw.store.createHandle(this.getSelectedFeature(draw)!.id!, mid, i, true);
+    draw.state.createHandle(this.getSelectedFeature(draw)!.id!, mid, i, true);
   }
 
   // === Selection ===
   private deselectAll(draw: DrawController) {
     const selected = this.getSelectedFeature(draw);
-    if (selected?.id) draw.store.clearHandles(selected.id);
-    draw.store.clearSelection();
+    if (selected?.id) draw.state.clearHandles(selected.id);
+    draw.state.clearSelection();
   }
 
   private getSelectedFeature(draw: DrawController): Feature | undefined {
-    const id = draw.store.selectedIds[0];
+    const id = draw.state.selectedIds[0];
     if (!id) return;
-    return draw.store.getFeature(id);
+    return draw.state.getFeature(id);
   }
 
   // === Core helper ===

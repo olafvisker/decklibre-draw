@@ -81,7 +81,7 @@ export abstract class BaseDrawMode implements DrawMode {
     if (!feature) return;
 
     this.featureId = feature.id;
-    draw.store.addFeature(feature);
+    draw.state.addFeature(feature);
 
     if (this.featureId) this.updateHandles(draw);
   }
@@ -90,13 +90,13 @@ export abstract class BaseDrawMode implements DrawMode {
     if (!this.featureId) return;
     const feature = this.generate(draw, coords, this.featureId, props);
     if (!feature) return;
-    draw.store.updateFeature(this.featureId, feature);
+    draw.state.updateFeature(this.featureId, feature);
   }
 
   protected updateHandles(draw: DrawController) {
     if (!this.featureId || this.coordinates.length === 0) return;
 
-    draw.store.clearHandles(this.featureId);
+    draw.state.clearHandles(this.featureId);
 
     const { handleDisplay } = this.config;
     const coords = this.coordinates;
@@ -105,23 +105,23 @@ export abstract class BaseDrawMode implements DrawMode {
         return;
 
       case "first":
-        draw.store.createHandle(this.featureId, coords[0], 0);
+        draw.state.createHandle(this.featureId, coords[0], 0);
         break;
 
       case "last":
-        draw.store.createHandle(this.featureId, coords[coords.length - 1], 0);
+        draw.state.createHandle(this.featureId, coords[coords.length - 1], 0);
         break;
 
       case "first-last":
-        draw.store.createHandle(this.featureId, coords[0], 0);
+        draw.state.createHandle(this.featureId, coords[0], 0);
         if (coords.length > 1) {
-          draw.store.createHandle(this.featureId, coords[coords.length - 1], 1);
+          draw.state.createHandle(this.featureId, coords[coords.length - 1], 1);
         }
         break;
 
       case "all":
         coords.forEach((coord, i) => {
-          draw.store.createHandle(this.featureId!, coord, i);
+          draw.state.createHandle(this.featureId!, coord, i);
         });
         break;
     }
@@ -130,13 +130,13 @@ export abstract class BaseDrawMode implements DrawMode {
   protected finishShape(draw: DrawController) {
     if (!this.featureId) return;
     this.updateShape(draw, this.coordinates, { preview: false });
-    draw.store.clearHandles(this.featureId);
+    draw.state.clearHandles(this.featureId);
     this.reset(draw);
   }
 
   protected reset(draw: DrawController) {
     if (this.featureId) {
-      draw.store.clearHandles(this.featureId);
+      draw.state.clearHandles(this.featureId);
     }
     this.coordinates = [];
     this.featureId = undefined;

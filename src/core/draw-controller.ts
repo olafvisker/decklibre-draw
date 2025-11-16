@@ -56,7 +56,7 @@ export class DrawController {
   private _modeName?: string;
   private _modes: Record<string, DrawMode> = {};
 
-  private _store: DrawState;
+  private _state: DrawState;
   private _layerIds?: string[];
 
   private _panning = false;
@@ -67,7 +67,7 @@ export class DrawController {
     this._deck = deck;
     this._map = map;
 
-    this._store = new DrawState({ features: options?.features });
+    this._state = new DrawState({ features: options?.features });
     this._modes = { ...DEFAULT_MODES, ...options?.modes };
 
     this._layerIds = options?.layerIds;
@@ -91,7 +91,7 @@ export class DrawController {
 
   /** Getters */
   public get features(): Feature[] {
-    return this._store.features;
+    return this._state.features;
   }
 
   public get currentMode(): string | undefined {
@@ -102,8 +102,8 @@ export class DrawController {
     return this._mode;
   }
 
-  public get store(): DrawState {
-    return this._store;
+  public get state(): DrawState {
+    return this._state;
   }
 
   /** Mode Registry */
@@ -218,7 +218,7 @@ export class DrawController {
     ];
 
     for (const type of events) {
-      this._store.on(type, (e) => this._emit(type, e as any));
+      this._state.on(type, (e) => this._emit(type, e as any));
     }
   }
 
@@ -272,9 +272,9 @@ export class DrawController {
         properties: {},
       },
     ];
-    this._store.addFeatures(tempFeatures);
+    this._state.addFeatures(tempFeatures);
     requestAnimationFrame(() => {
-      this._store.removeFeatures(tempFeatures.map((f) => f.id!.toString()));
+      this._state.removeFeatures(tempFeatures.map((f) => f.id!.toString()));
     });
   };
 
