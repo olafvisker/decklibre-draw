@@ -8,7 +8,7 @@ interface SelectModeOptions {
 }
 
 export class SelectMode implements DrawMode {
-  public startSelectedId: string | number | undefined;
+  public startSelectedId?: string | number;
   public dragWithoutSelect = false;
 
   private _dragging = false;
@@ -67,7 +67,7 @@ export class SelectMode implements DrawMode {
     const dy = info.lat - this._dragStartCoord[1];
 
     const feature = draw.store.getFeature(this._dragFeatureId);
-    if (!feature) return;
+    if (!feature || !feature.id) return;
 
     const handles: Position[] = feature.properties?.handles || [];
 
@@ -75,7 +75,7 @@ export class SelectMode implements DrawMode {
       // Regenerate feature via generator
       const movedHandles = handles.map(([x, y]) => [x + dx, y + dy]);
 
-      const updated = draw.generateFeature(feature.properties?.generator, movedHandles, {
+      const updated = draw.store.generateFeature(feature.properties?.generator, movedHandles, {
         id: feature.id,
         props: { ...feature.properties, handles: movedHandles },
       });

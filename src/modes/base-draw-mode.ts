@@ -68,7 +68,7 @@ export class BaseDrawMode implements DrawMode {
   }
 
   protected generateFeature(draw: DrawController, points: Position[], props?: Record<string, unknown>) {
-    return draw.generateFeature(this.config.shape.generator, points, {
+    return draw.store.generateFeature(this.config.shape.generator, points, {
       id: this.featureId,
       props: {
         selected: true,
@@ -110,17 +110,17 @@ export class BaseDrawMode implements DrawMode {
         return;
 
       case "first":
-        draw.store.createHandle(this.featureId, coords[0]);
+        draw.store.createHandle(this.featureId, coords[0], 0);
         break;
 
       case "last":
-        draw.store.createHandle(this.featureId, coords[coords.length - 1]);
+        draw.store.createHandle(this.featureId, coords[coords.length - 1], 0);
         break;
 
       case "first-last":
-        draw.store.createHandle(this.featureId, coords[0]);
+        draw.store.createHandle(this.featureId, coords[0], 0);
         if (coords.length > 1) {
-          draw.store.createHandle(this.featureId, coords[coords.length - 1]);
+          draw.store.createHandle(this.featureId, coords[coords.length - 1], 1);
         }
         break;
 

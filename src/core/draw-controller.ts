@@ -16,14 +16,8 @@ import {
 } from "../modes";
 import mitt from "mitt";
 import { DrawControllerEvents, DrawStoreEvents } from "./draw-events";
-import { DefaultShapeGenerators, type ShapeGeneratorFn } from "../generators/generators";
+import { DefaultShapeGenerators, type GeneratorFn } from "../generators/generators";
 import { DefaultEditModes, type EditorFn } from "../editors";
-
-export interface GenerateFeatureOptions<P extends GeoJsonProperties = GeoJsonProperties> {
-  id?: string | number;
-  props?: P;
-  shapeGeneratorOptions?: Record<string, unknown>;
-}
 
 export type CursorState = "default" | "grab" | "grabbing" | "crosshair" | "pointer" | "wait" | "move";
 
@@ -35,7 +29,7 @@ export interface CursorOptions {
 
 export interface DrawControllerOptions {
   features?: Feature[];
-  shapeGenerators?: Record<string, ShapeGeneratorFn>;
+  shapeGenerators?: Record<string, GeneratorFn>;
   editors?: Record<string, EditorFn>;
   modes?: Record<string, DrawMode>;
   initialMode?: string;
@@ -61,7 +55,7 @@ export class DrawController {
   private _mode?: DrawMode;
   private _modeName?: string;
   private _modes: Record<string, DrawMode> = {};
-  private _shapeGenerators: Record<string, ShapeGeneratorFn> = {};
+  private _generators: Record<string, GeneratorFn> = {};
   private _editors: Record<string, EditorFn> = {};
 
   private _store: DrawStore;
@@ -76,7 +70,7 @@ export class DrawController {
     this._map = map;
 
     this._modes = { ...DEFAULT_MODES, ...options?.modes };
-    this._shapeGenerators = { ...DefaultShapeGenerators, ...options?.shapeGenerators };
+    this._generators = { ...DefaultShapeGenerators, ...options?.shapeGenerators };
     this._editors = { ...DefaultEditModes, ...options?.editors };
 
     this._store = new DrawStore(this, { features: options?.features });
@@ -118,39 +112,13 @@ export class DrawController {
   }
 
   /** Shape Generator Registry */
-  public registerShapeGenerator(name: string, generator: ShapeGeneratorFn) {
-    if (!name) throw new Error("Generator name is required.");
-    this._shapeGenerators[name] = generator;
-  }
-
-  public unregisterShapeGenerator(name: string) {
-    delete this._shapeGenerators[name];
-  }
-
-  public getShapeGenerator(name: string): ShapeGeneratorFn | undefined {
-    return this._shapeGenerators[name];
-  }
-
-  public getRegisteredShapeGenerators(): string[] {
-    return Object.keys(this._shapeGenerators);
+  public getGenerator(name: string): GeneratorFn | undefined {
+    return this._generators[name];
   }
 
   /** Handle Editor Registry */
-  public registerEditor(name: string, editor: EditorFn) {
-    if (!name) throw new Error("Handle editor name is required.");
-    this._editors[name] = editor;
-  }
-
-  public unregisterEditor(name: string) {
-    delete this._editors[name];
-  }
-
   public getEditor(name: string): EditorFn | undefined {
     return this._editors[name];
-  }
-
-  public getRegisteredEditors(): string[] {
-    return Object.keys(this._editors);
   }
 
   /** Mode Registry */
@@ -170,10 +138,6 @@ export class DrawController {
     }
 
     delete this._modes[name];
-  }
-
-  public getRegisteredModes(): string[] {
-    return Object.keys(this._modes);
   }
 
   public changeMode<T extends DrawMode = DrawMode>(name: string, options?: Partial<T>): T {
@@ -242,20 +206,6 @@ export class DrawController {
   public unproject(point: Position): Position {
     const lngLat = this._map.unproject({ x: point[0], y: point[1] } as PointLike);
     return [lngLat.lng, lngLat.lat];
-  }
-
-  /** Generator */
-  public generateFeature(name: string, points: Position[], options?: GenerateFeatureOptions) {
-    const generator = this.getShapeGenerator(name);
-    if (!generator) {
-      console.warn(`Generator "${name}" not found.`);
-      return;
-    }
-
-    const feature = generator(this, points, options?.shapeGeneratorOptions);
-    feature.id = options?.id || feature.id || uuid();
-    feature.properties = { ...feature.properties, generator: name, handles: points, ...options?.props };
-    return feature;
   }
 
   /** Event binding */
@@ -335,7 +285,7 @@ export class DrawController {
     ];
     this._store.addFeatures(tempFeatures);
     requestAnimationFrame(() => {
-      this._store.removeFeatures(tempFeatures.map((f) => f.id));
+      this._store.removeFeatures(tempFeatures.map((f) => f.id!.toString()));
     });
   };
 

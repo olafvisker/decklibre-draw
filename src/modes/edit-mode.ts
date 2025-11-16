@@ -1,4 +1,4 @@
-import { DrawMode, DrawController, DrawInfo } from "../core";
+import { DrawMode, DrawController, DrawInfo, HandleProperties } from "../core";
 import type { Feature, Point, Position } from "geojson";
 import { toMercator, toWgs84, point } from "@turf/turf";
 import { SelectMode } from "./select-mode";
@@ -61,7 +61,7 @@ export class EditMode implements DrawMode {
     const f = info.feature;
     if (!f || !f.id) return draw.setDoubleClickZoom(true);
 
-    const { handle, midpoint, _handleIndex, insertIndex } = f.properties || {};
+    const { handle, midpoint, index } = (f.properties as HandleProperties) || {};
 
     if (this.dragWithoutSelect || draw.store.isSelected(f.id)) {
       if (!handle && !midpoint) {
@@ -78,20 +78,20 @@ export class EditMode implements DrawMode {
     if (midpoint) {
       const selected = this.getSelectedFeature(draw);
       if (!selected) return;
-      this.insertVertex(draw, insertIndex, [info.lng, info.lat]);
-      this.startDrag("handle", info, insertIndex + 1, draw);
+      this.insertVertex(draw, index, [info.lng, info.lat]);
+      this.startDrag("handle", info, index + 1, draw);
       this.createHandles(draw);
       return;
     }
 
-    if (handle) return this.startDrag("handle", info, _handleIndex, draw);
+    if (handle) return this.startDrag("handle", info, index, draw);
     if (draw.store.isSelected(f.id)) this.startDrag("feature", info, undefined, draw);
   }
 
   onMouseMove(info: DrawInfo, draw: DrawController) {
     if (this._dragging && this._dragFeatureId && this._dragStartCoord && this._dragType === "feature") {
       const feature = draw.store.getFeature(this._dragFeatureId);
-      if (!feature) return;
+      if (!feature || !feature.id) return;
 
       const [dx, dy] = [info.lng - this._dragStartCoord[0], info.lat - this._dragStartCoord[1]];
       const updated = this.translateFeature(feature, dx, dy, draw);
@@ -104,7 +104,7 @@ export class EditMode implements DrawMode {
 
     // Updated handle drag logic using handle editors
     const selected = this.getSelectedFeature(draw);
-    if (!this._dragging || !selected || !this._dragStartCoord) return;
+    if (!this._dragging || !selected?.id || !this._dragStartCoord) return;
 
     const [dx, dy] = [info.lng - this._dragStartCoord[0], info.lat - this._dragStartCoord[1]];
     this._dragStartCoord = [info.lng, info.lat];
@@ -184,7 +184,7 @@ export class EditMode implements DrawMode {
 
   private insertVertex(draw: DrawController, index: number, coord: Position) {
     const selected = this.getSelectedFeature(draw);
-    if (!selected) return;
+    if (!selected?.id) return;
 
     const handles = selected.properties?.handles || [];
     const updatedHandles = [...handles];
@@ -197,7 +197,7 @@ export class EditMode implements DrawMode {
   // === Handle Management ===
   private createHandles(draw: DrawController) {
     const selected = this.getSelectedFeature(draw);
-    if (!selected) return;
+    if (!selected?.id) return;
     draw.store.clearHandles(selected.id);
 
     const coords: Position[] = selected.properties?.handles || [];
@@ -223,15 +223,14 @@ export class EditMode implements DrawMode {
     const mb = toMercator(point(b)).geometry.coordinates;
     const mid = toWgs84(point([(ma[0] + mb[0]) / 2, (ma[1] + mb[1]) / 2])).geometry.coordinates;
 
-    const handle = draw.store.createHandle(this.getSelectedFeature(draw)!.id!, mid);
-    handle.properties = { ...handle.properties, midpoint: true, insertIndex: i };
+    const handle = draw.store.createHandle(this.getSelectedFeature(draw)!.id!, mid, i, true);
     return handle;
   }
 
   // === Selection ===
   private deselectAll(draw: DrawController) {
     const selected = this.getSelectedFeature(draw);
-    if (selected) draw.store.clearHandles(selected.id);
+    if (selected?.id) draw.store.clearHandles(selected.id);
     draw.store.clearSelection();
   }
 
@@ -247,7 +246,7 @@ export class EditMode implements DrawMode {
     const props = { ...feature.properties, handles: coords };
 
     if (generatorName) {
-      const regenerated = draw.generateFeature(generatorName, coords, { id: feature.id, props });
+      const regenerated = draw.store.generateFeature(generatorName, coords, { id: feature.id, props });
       return regenerated || feature;
     }
 

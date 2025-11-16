@@ -1,19 +1,43 @@
-import type { Feature, Point, Position } from "geojson";
+import type { Feature, GeoJsonProperties, Geometry, Point, Position } from "geojson";
 import { v4 as uuid } from "uuid";
 import mitt from "mitt";
 import { DrawStoreEvents } from "./draw-events";
 import { DrawController } from "./draw-controller";
+
+export type DrawFeature = Feature<Geometry, DrawProperties>;
+export type HandleFeature = Feature<Point, HandleProperties>;
+
+export type DrawProperties = GeoJsonProperties & {
+  mode: string;
+  handles: Position[];
+  preview?: boolean;
+  selected?: boolean;
+};
+
+export type HandleProperties = GeoJsonProperties & {
+  handle?: boolean;
+  midpoint?: boolean;
+  featureId: string | number;
+  index: number;
+};
+
+export interface GenerateFeatureOptions<P extends GeoJsonProperties = GeoJsonProperties> {
+  id?: string | number;
+  props?: P;
+  shapeGeneratorOptions?: Record<string, unknown>;
+}
 
 export interface DrawStoreOptions {
   features?: Feature[];
 }
 
 export class DrawStore {
-  private _featureMap: Map<string | number, Feature> = new Map();
-  private _selectedIds = new Set<string | number>();
-  private _handles: Map<string | number, Feature<Point>[]> = new Map();
-  private _emitter = mitt<DrawStoreEvents>();
   private _draw: DrawController;
+  private _emitter = mitt<DrawStoreEvents>();
+
+  private _featureMap: Map<string | number, Feature> = new Map();
+  private _handleMap: Map<string | number, HandleFeature[]> = new Map();
+  private _selectedFeatureIds = new Set<string | number>();
 
   constructor(draw: DrawController, options?: DrawStoreOptions) {
     this._draw = draw;
@@ -29,8 +53,8 @@ export class DrawStore {
     return Array.from(this._featureMap.values());
   }
 
-  public getFeature(id: string | number | undefined) {
-    return id ? this._featureMap.get(id) : undefined;
+  public getFeature(id: string | number) {
+    return this._featureMap.get(id);
   }
 
   public addFeature(feature: Feature) {
@@ -42,116 +66,132 @@ export class DrawStore {
     if (!features.length) return;
     for (const f of features) {
       if (f.id === undefined) continue;
-      this._featureMap.set(f.id, f);
+      this._featureMap.set(f.id!.toString(), f);
       added.push(f);
     }
     this._emit("feature:add", { features: added });
     this._emit("feature:change", { features: this.features });
   }
 
-  public removeFeature(id: string | number | undefined) {
+  public removeFeature(id: string | number) {
     return this.removeFeatures([id]);
   }
 
-  public removeFeatures(ids: (string | number | undefined)[]) {
-    const validIds = ids.filter((id): id is string | number => id !== undefined);
-    if (!validIds.length) return;
-    for (const id of validIds) {
+  public removeFeatures(ids: (string | number)[]) {
+    if (!ids.length) return;
+    for (const id of ids) {
       this._featureMap.delete(id);
-      this._selectedIds.delete(id);
+      this._selectedFeatureIds.delete(id);
       this.clearHandles(id);
     }
-    this._emit("feature:remove", { ids: validIds });
+    this._emit("feature:remove", { ids });
     this._emit("feature:change", { features: this.features });
   }
 
   public removeAllFeature() {
     const ids = Array.from(this._featureMap.keys());
-    for (const featureId of this._handles.keys()) {
+    for (const featureId of this._handleMap.keys()) {
       this.clearHandles(featureId);
     }
     this._featureMap.clear();
-    this._selectedIds.clear();
+    this._selectedFeatureIds.clear();
     this._emit("feature:remove", { ids });
     this._emit("feature:change", { features: this.features });
   }
 
-  public updateFeature(id: string | number | undefined, updates: Partial<Feature>) {
-    if (!id) return;
+  public updateFeature(id: string | number, updates: Partial<Feature>) {
     const feature = this._featureMap.get(id);
     if (!feature) return;
-
-    if (updates.properties) feature.properties = { ...feature.properties, ...updates.properties };
     Object.assign(feature, updates);
-
     this._emit("feature:update", { features: [feature] });
     this._emit("feature:change", { features: this.features });
   }
 
-  // --- Handle Management ---
-  public createHandle(featureId: string | number, coord: Position, index?: number): Feature<Point> {
-    const handle: Feature<Point> = {
+  /** Generator */
+  public generateFeature(name: string, points: Position[], options?: GenerateFeatureOptions) {
+    const generator = this._draw.getGenerator(name);
+    const feature = generator?.(this._draw, points, options?.shapeGeneratorOptions);
+    if (!feature) return;
+    feature.id = options?.id || feature.id || uuid();
+    feature.properties = {
+      ...feature.properties,
+      mode: "",
+      generator: name,
+      handles: points,
+      ...options?.props,
+    } as DrawProperties;
+    return feature;
+  }
+
+  // --- Control Point Management ---
+  public createHandle(
+    featureId: string | number,
+    coord: Position,
+    index: number,
+    asMidpoint: boolean = false
+  ): HandleFeature {
+    const handle: HandleFeature = {
       id: uuid(),
       type: "Feature",
       geometry: { type: "Point", coordinates: coord },
-      properties: { handle: true, _handleIndex: index ?? undefined },
+      properties: { handle: !asMidpoint, midpoint: asMidpoint, featureId, index },
     };
 
-    const existing = this._handles.get(featureId) ?? [];
-    this._handles.set(featureId, [...existing, handle]);
+    const existing = this._handleMap.get(featureId) ?? [];
+    this._handleMap.set(featureId, [...existing, handle]);
     this.addFeature(handle);
     return handle;
   }
 
-  public clearHandles(featureId: string | number | undefined) {
-    if (!featureId) return;
-    const handles = this._handles.get(featureId);
-    if (handles) {
-      this.removeFeatures(handles.map((h) => h.id));
-      this._handles.delete(featureId);
+  public clearHandles(featureId: string | number) {
+    const handle = this._handleMap.get(featureId);
+    if (handle) {
+      this.removeFeatures(handle.map((h) => h.id!.toString()));
+      this._handleMap.delete(featureId);
     }
   }
 
-  public getHandles(featureId: string | number | undefined) {
-    if (!featureId) return [];
-    return this._handles.get(featureId) ?? [];
+  public getHandles(featureId: string | number) {
+    return this._handleMap.get(featureId) ?? [];
   }
 
   // --- Selection Management ---
   public get selectedIds(): (string | number)[] {
-    return Array.from(this._selectedIds);
+    return Array.from(this._selectedFeatureIds);
   }
 
   public isSelected(id: string | number): boolean {
-    return this._selectedIds.has(id);
+    return this._selectedFeatureIds.has(id);
   }
 
-  public setSelected(id: string | number | undefined) {
-    this._selectedIds.clear();
-    if (id !== undefined) this._selectedIds.add(id);
+  public setSelected(id: string | number) {
+    this._selectedFeatureIds.clear();
+    this._selectedFeatureIds.add(id);
     this._syncSelectionState();
   }
 
   public clearSelection() {
-    this._selectedIds.clear();
+    this._selectedFeatureIds.clear();
     this._syncSelectionState();
   }
 
   private _syncSelectionState() {
     let changed = false;
+
     // Update selected features
-    for (const id of this._selectedIds) {
-      const feature = this._featureMap.get(id);
-      if (feature && feature.properties?.selected !== true) {
-        feature.properties = { ...feature.properties, selected: true };
+    for (const id of this._selectedFeatureIds) {
+      const feature = this._featureMap.get(id) as DrawFeature;
+      if (feature && feature.properties.selected !== true) {
+        feature.properties.selected = true;
         changed = true;
       }
     }
 
     // Update unselected features
-    for (const feature of this._featureMap.values()) {
-      if (feature.properties?.selected && !this._selectedIds.has(feature.id!)) {
-        feature.properties = { ...feature.properties, selected: false };
+    for (const f of this._featureMap.values()) {
+      const feature = f as DrawFeature;
+      if (feature.properties.selected && !this._selectedFeatureIds.has(feature.id!.toString())) {
+        feature.properties.selected = false;
         changed = true;
       }
     }
