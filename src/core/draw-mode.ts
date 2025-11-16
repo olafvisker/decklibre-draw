@@ -10,11 +10,9 @@ export interface DrawInfo {
 }
 
 export interface EditContext {
-  feature: Feature;
   handleIndex: number;
   handles: Position[];
   delta: [number, number];
-  draw: DrawController;
 }
 
 export interface DrawMode {

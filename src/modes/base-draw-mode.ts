@@ -1,4 +1,5 @@
 import { DrawMode, DrawController, DrawInfo, EditContext } from "../core";
+import { isolatedEditor } from "../editors";
 import type { Feature, Position } from "geojson";
 
 export interface BaseDrawModeConfig {
@@ -70,11 +71,8 @@ export abstract class BaseDrawMode implements DrawMode {
     props?: Record<string, unknown>
   ): Feature | undefined;
 
-  edit?(context: EditContext): Position[] {
-    const { handles, handleIndex, delta } = context;
-    const [dx, dy] = delta;
-    const newHandles = handles.map((coord, i) => (i === handleIndex ? [coord[0] + dx, coord[1] + dy] : coord));
-    return newHandles;
+  edit(context: EditContext): Position[] {
+    return isolatedEditor(context);
   }
 
   protected createInitialFeature(draw: DrawController, coord: Position) {
