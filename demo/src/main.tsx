@@ -51,7 +51,7 @@ const modes: { label: string; icon: React.ReactNode; mode: string }[] = [
   { label: "Draw Rectangle", icon: <VectorSquare size={16} />, mode: "rectangle" },
 ];
 
-function Toolbar({ draw }: { draw?: DrawController }) {
+function Toolbar({ draw }: { draw: DrawController | null }) {
   const [activeMode, setActiveMode] = useState(draw?.currentMode ?? "static");
   const [dragWithoutSelect, setDragWithoutSelect] = useState(false);
 
