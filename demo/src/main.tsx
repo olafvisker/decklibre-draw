@@ -17,7 +17,6 @@ import {
   HandIcon,
   MapPinIcon,
   MousePointer2Icon,
-  MousePointerClickIcon,
   PentagonIcon,
   RadiusIcon,
   Trash2Icon,
@@ -43,7 +42,7 @@ function DeckGLOverlay({ onReady, ...props }: DeckGLOverlayProps) {
 const modes: { label: string; icon: React.ReactNode; mode: string }[] = [
   { label: "Static", icon: <HandIcon size={16} />, mode: "static" },
   { label: "Select", icon: <MousePointer2Icon size={16} />, mode: "select" },
-  { label: "Direct", icon: <MousePointerClickIcon size={16} />, mode: "edit" },
+  // { label: "Direct", icon: <MousePointerClickIcon size={16} />, mode: "edit" },
   { label: "Draw Point", icon: <MapPinIcon size={16} />, mode: "point" },
   { label: "Draw Line", icon: <WaypointsIcon size={16} />, mode: "line" },
   { label: "Draw Polygon", icon: <PentagonIcon size={16} />, mode: "polygon" },
