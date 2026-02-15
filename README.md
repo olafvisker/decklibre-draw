@@ -1,8 +1,4 @@
-<p align="center">
-  <span style="font-size: 48px; font-weight: bold; vertical-align: middle; margin-left: 15px;">🦚 decklibre-draw</span>
-</p>
-
-### [🌐 Live Demo](https://olafvisker.github.io/decklibre-draw/)
+# 🦚 decklibre-draw ([🌐 Live Demo](https://olafvisker.github.io/decklibre-draw/))
 
 ![Tool](assets/tool.gif)
 
