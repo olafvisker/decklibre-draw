@@ -14,6 +14,7 @@ import type { EditMode, SelectMode } from "../../src/modes";
 import type { Feature } from "geojson";
 
 import {
+  GithubIcon,
   HandIcon,
   MapPinIcon,
   MousePointer2Icon,
@@ -117,6 +118,11 @@ function Toolbar({ draw }: { draw: DrawController | null }) {
         title="Drag Without Select"
         onClick={toggleDragWithoutSelect}>
         <ZapIcon size={16} className={dragWithoutSelect ? "icon-active" : ""} />
+      </button>
+      <button className={`toolbar-btn`} title="Github">
+        <a href="https://github.com/olafvisker/decklibre-draw">
+          <GithubIcon size={16} />
+        </a>
       </button>
     </div>
   );
