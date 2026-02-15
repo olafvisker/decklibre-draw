@@ -7,7 +7,7 @@
 - Draw and edit points, lines, polygons, circles, and rectangles
 - Custom feature generators allow creating new types of geometries
 - Mode-based interactions for drawing, selecting, and direct editing
-- Designed for Deck.gl and MapLibre GL, with potential support for other renderers
+- Designed for Deck.gl and MapLibre GL, with potential future support for other renderers
 
 > ⚠️ Work in progress. API and features may change.
 
@@ -81,7 +81,22 @@ controller.changeModeOptions<SelectMode>("select", { dragWithoutSelect: true });
 
 ### Creating Custom Modes
 
-All interaction modes in **decklibre-draw** implement the `DrawMode` interface. A mode is essentially an object with optional lifecycle and event handler methods:
+All interaction modes in **decklibre-draw** implement the `DrawMode` interface. A mode is essentially an object with optional lifecycle and event handler methods.
+
+A mode defines **two independent parts**:
+
+- **`generate()` → Shape creation**
+  Converts clicked **points (handles)** into the final GeoJSON geometry.
+  The rendered shape is always derived from these points.
+
+- **`edit()` → Handle editing**
+  Controls how handles move and how their movement updates the underlying points.
+  This fully separates **editing logic from drawing logic**.
+
+Because of this separation:
+
+- The shape can be fully independent from it's handles.
+- Custom geometries can define completely custom editing behavior independent from drawing
 
 ```ts
 export interface DrawInfo {
@@ -112,5 +127,39 @@ export interface DrawMode {
   ): Feature | undefined;
 
   edit?(context: EditContext): Position[];
+}
+```
+
+You can also extend the `BaseDrawMode` which handles the basic coordinate collection, preview rendering, handles, and finishing logic for you.
+
+- **pointCount** – Auto-finish after N clicks (otherwise double-click finishes)
+- **handleDisplay** – Which handles are editable while drawing (`none, all, last, first, first-last`)
+
+```ts
+export class DrawTriangleMode extends BaseDrawMode {
+  readonly name = "triangle";
+
+  constructor() {
+    super({ pointCount: 3, handleDisplay: "first-last" });
+  }
+
+  generate(
+    _draw,
+    points: Position[],
+    id?: string | number,
+    props?: Record<string, unknown>
+  ): Feature<Polygon> | undefined {
+    if (points.length < 3) return;
+
+    return {
+      type: "Feature",
+      id: id ?? uuid(),
+      geometry: {
+        type: "Polygon",
+        coordinates: [[...points, points[0]]],
+      },
+      properties: { mode: this.name, handles: points, ...props },
+    };
+  }
 }
 ```
