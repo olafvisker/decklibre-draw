@@ -77,11 +77,15 @@ export class DrawState {
 
   public removeFeatures(ids: (string | number)[]) {
     if (!ids.length) return;
+    let selectionChanged = false;
     for (const id of ids) {
       this._featureMap.delete(id);
-      this._selectedFeatureIds.delete(id);
+      if (this._selectedFeatureIds.delete(id)) {
+        selectionChanged = true;
+      }
       this.clearHandles(id);
     }
+    if (selectionChanged) this._syncSelectionState();
     this._emit("feature:remove", { ids });
     this._emit("feature:change", { features: this.features });
   }
@@ -91,8 +95,11 @@ export class DrawState {
     for (const featureId of this._handleMap.keys()) {
       this.clearHandles(featureId);
     }
+    const hadSelection = this._selectedFeatureIds.size > 0;
     this._featureMap.clear();
     this._selectedFeatureIds.clear();
+
+    if (hadSelection) this._syncSelectionState();
     this._emit("feature:remove", { ids });
     this._emit("feature:change", { features: this.features });
   }
@@ -110,7 +117,7 @@ export class DrawState {
     featureId: string | number,
     coord: Position,
     index: number,
-    asMidpoint: boolean = false
+    asMidpoint: boolean = false,
   ): HandleFeature {
     const handle: HandleFeature = {
       id: uuid(),
