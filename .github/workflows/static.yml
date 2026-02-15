@@ -22,32 +22,51 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout repo
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 2️⃣ Setup Node
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: demo/package-lock.json
+          cache-dependency-path: package-lock.json
 
+      # 3️⃣ Install root library deps and build it
+      - name: Install root deps
+        run: npm ci
+
+      - name: Build root library
+        run: npm run build
+
+      # 4️⃣ Install demo deps
       - name: Install demo deps
         working-directory: demo
         run: npm ci
 
+      # 5️⃣ Link root library into demo
+      - name: Install root library locally into demo
+        working-directory: demo
+        run: npm install ../
+
+      # 6️⃣ Build demo
       - name: Build demo
         working-directory: demo
         run: npm run build
 
+      # 7️⃣ Setup Pages
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      # 8️⃣ Upload built demo
       - name: Upload built demo
         uses: actions/upload-pages-artifact@v3
         with:
           path: demo/dist  
 
+      # 9️⃣ Deploy
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
