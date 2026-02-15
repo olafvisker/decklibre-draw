@@ -5,6 +5,7 @@ import { EditMode } from "./edit-mode";
 interface SelectModeOptions {
   selectedId?: string | number;
   dragWithoutSelect?: boolean;
+  preventEdit?: boolean;
 }
 
 export class SelectMode implements DrawMode {
@@ -12,13 +13,15 @@ export class SelectMode implements DrawMode {
 
   public startSelectedId?: string | number;
   public dragWithoutSelect = false;
+  public preventEdit = false;
 
   private _dragging = false;
   private _dragStartCoord?: Position;
   private _dragFeatureId?: string | number;
 
-  constructor({ selectedId, dragWithoutSelect }: SelectModeOptions = {}) {
+  constructor({ selectedId, dragWithoutSelect, preventEdit }: SelectModeOptions = {}) {
     this.startSelectedId = selectedId;
+    this.preventEdit = !!preventEdit;
     if (dragWithoutSelect) this.dragWithoutSelect = dragWithoutSelect;
   }
 
@@ -37,16 +40,16 @@ export class SelectMode implements DrawMode {
   }
 
   onClick(info: DrawInfo, draw: DrawController) {
-    const feature = info.feature;
-    if (!feature?.id) {
+    const f = info.feature;
+    if (!f?.id) {
       draw.state.clearSelection();
       return;
     }
 
-    if (draw.state.isSelected(feature.id)) {
-      draw.changeMode<EditMode>("edit", { startSelectedId: feature.id });
+    if (!this.preventEdit && draw.state.isSelected(f.id)) {
+      draw.changeMode<EditMode>("edit", { startSelectedId: f.id });
     } else {
-      draw.state.setSelected(feature.id);
+      draw.state.setSelected(f.id);
     }
   }
 
