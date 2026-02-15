@@ -1,4 +1,4 @@
-# decklibre-draw
+# decklibre-draw ([Live Demo](https://olafvisker.github.io/decklibre-draw/))
 
 ![Tool](assets/tool.gif)
 
@@ -10,6 +10,12 @@
 - Designed for Deck.gl and MapLibre GL, with potential future support for other renderers
 
 > ⚠️ Work in progress. API and features may change.
+
+## Try the Demo Online
+
+You can try **decklibre-draw** directly in your browser here:
+
+[Live Demo](https://olafvisker.github.io/decklibre-draw/)
 
 ### Installation
 
