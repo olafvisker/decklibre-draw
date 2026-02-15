@@ -85,9 +85,9 @@ export class DrawState {
       }
       this.clearHandles(id);
     }
-    if (selectionChanged) this._syncSelectionState();
     this._emit("feature:remove", { ids });
     this._emit("feature:change", { features: this.features });
+    if (selectionChanged) this._emit("selection:change", { selectedIds: this.selectedIds });
   }
 
   public removeAllFeature() {
@@ -99,9 +99,9 @@ export class DrawState {
     this._featureMap.clear();
     this._selectedFeatureIds.clear();
 
-    if (hadSelection) this._syncSelectionState();
     this._emit("feature:remove", { ids });
     this._emit("feature:change", { features: this.features });
+    if (hadSelection) this._emit("selection:change", { selectedIds: [] });
   }
 
   public updateFeature(id: string | number, updates: Partial<Feature>) {
