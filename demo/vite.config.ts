@@ -18,4 +18,14 @@ export default defineConfig({
       "@decklibre-draw": path.resolve(__dirname, "../decklibre-draw/src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "maplibre-gl": ["maplibre-gl"],
+          "deck.gl": ["deck.gl"],
+        },
+      },
+    },
+  },
 });

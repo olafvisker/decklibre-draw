@@ -1,4 +1,5 @@
-import { DrawMode, DrawController } from "../core";
+import type { DrawMode } from "../core";
+import { DrawController } from "../core";
 
 export class StaticMode implements DrawMode {
   readonly name = "static";

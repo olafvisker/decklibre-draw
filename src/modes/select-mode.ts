@@ -1,5 +1,6 @@
 import type { Position } from "geojson";
-import { DrawController, DrawInfo, DrawMode } from "../core";
+import { DrawController } from "../core";
+import type { DrawInfo, DrawMode } from "../core";
 import { EditMode } from "./edit-mode";
 
 interface SelectModeOptions {

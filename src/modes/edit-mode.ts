@@ -1,4 +1,6 @@
-import { DrawMode, DrawController, DrawInfo, HandleProperties, EditContext } from "../core";
+import type { DrawInfo, HandleProperties, EditContext } from "../core";
+import type { DrawMode } from "../core";
+import { DrawController } from "../core";
 import type { Feature, Position } from "geojson";
 import { toMercator, toWgs84, point } from "@turf/turf";
 import { SelectMode } from "./select-mode";

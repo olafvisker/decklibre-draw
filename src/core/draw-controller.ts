@@ -1,9 +1,11 @@
 import type { Deck } from "@deck.gl/core";
-import type { Feature, GeoJsonProperties, Position } from "geojson";
+import type { Feature, Position } from "geojson";
 import type { DrawInfo, DrawMode } from "./draw-mode";
-import { DrawState, DrawStateEvents } from "./draw-state";
+import type { DrawStateEvents } from "./draw-state";
+import { DrawState } from "./draw-state";
 import { v4 as uuid } from "uuid";
-import { Map as MaplibreMap, MapMouseEvent, MapTouchEvent, PointLike } from "maplibre-gl";
+import { Map as MaplibreMap, MapMouseEvent, MapTouchEvent } from "maplibre-gl";
+import type { PointLike } from "maplibre-gl";
 import {
   StaticMode,
   SelectMode,

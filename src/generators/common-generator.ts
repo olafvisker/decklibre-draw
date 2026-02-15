@@ -1,4 +1,4 @@
-import type { Feature, Geometry, Polygon, Position } from "geojson";
+import type { Feature, Geometry, Position } from "geojson";
 
 export const generateCommon = <T extends Geometry>(
   featureType: "Point" | "LineString" | "Polygon",

@@ -1,4 +1,5 @@
-import { DrawMode, DrawController, DrawInfo, EditContext } from "../core";
+import type { DrawMode, DrawInfo, EditContext } from "../core";
+import { DrawController } from "../core";
 import { isolatedEditor } from "../editors";
 import type { Feature, Position } from "geojson";
 
