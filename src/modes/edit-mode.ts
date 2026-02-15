@@ -7,6 +7,7 @@ import { isolatedEditor } from "../editors";
 interface EditModeOptions {
   selectedId?: string | number;
   dragWithoutSelect?: boolean;
+  instantEdit?: boolean;
 }
 
 export class EditMode implements DrawMode {
@@ -14,6 +15,7 @@ export class EditMode implements DrawMode {
 
   public startSelectedId?: string | number;
   public dragWithoutSelect = false;
+  public instantEdit = false;
 
   private _dragging = false;
   private _dragType: "feature" | "handle" | null = null;
@@ -21,8 +23,9 @@ export class EditMode implements DrawMode {
   private _dragFeatureId?: string | number;
   private _dragHandleIndex?: number;
 
-  constructor({ selectedId, dragWithoutSelect }: EditModeOptions = {}) {
+  constructor({ selectedId, dragWithoutSelect, instantEdit }: EditModeOptions = {}) {
     this.startSelectedId = selectedId;
+    this.instantEdit = !!instantEdit;
     if (dragWithoutSelect) this.dragWithoutSelect = dragWithoutSelect;
   }
 
@@ -39,8 +42,10 @@ export class EditMode implements DrawMode {
   }
 
   onClick(info: DrawInfo, draw: DrawController) {
+    this.deselectAll(draw);
+
     const f = info.feature;
-    if (!f || !f.id) return this.deselectAll(draw);
+    if (!f || !f.id) return;
 
     const { handle, midpoint, insertIndex } = f.properties || {};
     if (handle) return;
@@ -53,7 +58,10 @@ export class EditMode implements DrawMode {
       return;
     }
 
-    if (!draw.state.isSelected(f.id)) {
+    if (this.instantEdit) {
+      draw.state.setSelected(f.id);
+      this.createHandles(draw);
+    } else if (!draw.state.isSelected(f.id)) {
       draw.changeMode<SelectMode>("select", { startSelectedId: f.id });
     }
   }
@@ -103,7 +111,6 @@ export class EditMode implements DrawMode {
       return;
     }
 
-    // Updated handle drag logic using handle editors
     const selected = this.getSelectedFeature(draw);
     if (!this._dragging || !selected?.id || !this._dragStartCoord) return;
 
@@ -127,7 +134,6 @@ export class EditMode implements DrawMode {
     }
   }
 
-  // === Drag Helpers ===
   private resetDragState() {
     this._dragging = false;
     this._dragType = null;
@@ -144,16 +150,12 @@ export class EditMode implements DrawMode {
     draw.setDoubleClickZoom(false);
   }
 
-  // === Geometry Editing (using Handle Editors) ===
   private translateFeature(feature: Feature, dx: number, dy: number, draw: DrawController): Feature {
     const handles: Position[] = feature.properties?.handles || [];
     const moved = handles.map(([x, y]) => [x + dx, y + dy]);
     return this.regenerateFeature(draw, feature, moved);
   }
 
-  /**
-   * Use controller's handle editor registry
-   */
   private editHandle(feature: Feature, handleIndex: number, dx: number, dy: number, draw: DrawController): Feature {
     const handles: Position[] = feature.properties?.handles || [];
     const mode = draw.getMode(feature.properties?.mode);
@@ -179,7 +181,6 @@ export class EditMode implements DrawMode {
     draw.state.updateFeature(selected.id, updated);
   }
 
-  // === Handle Management ===
   private createHandles(draw: DrawController) {
     const selected = this.getSelectedFeature(draw);
     if (!selected?.id) return;
@@ -210,7 +211,6 @@ export class EditMode implements DrawMode {
     draw.state.createHandle(this.getSelectedFeature(draw)!.id!, mid, i, true);
   }
 
-  // === Selection ===
   private deselectAll(draw: DrawController) {
     const selected = this.getSelectedFeature(draw);
     if (selected?.id) draw.state.clearHandles(selected.id);
