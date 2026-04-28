@@ -63,6 +63,20 @@ controller.changeModeOptions<SelectMode>("select", { dragWithoutSelect: true });
 
 > All default modes are automatically registered and can be overridden in the constructor.
 
+#### Default Properties
+
+Set default properties that are automatically added to every feature drawn with a mode:
+
+```ts
+// When creating a mode
+const pointMode = new DrawPointMode({
+  defaultProperties: { color: 'red', category: 'marker' }
+});
+
+// Or update dynamically
+pointMode.setDefaultProperties({ color: 'blue' });
+```
+
 ### Events
 
 | Event            | Payload                         | Description                  |

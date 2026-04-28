@@ -6,6 +6,7 @@ import type { Feature, Position } from "geojson";
 export interface BaseDrawModeConfig {
   pointCount?: number;
   handleDisplay?: "none" | "first" | "last" | "first-last" | "all";
+  defaultProperties?: Record<string, unknown>;
 }
 
 export abstract class BaseDrawMode implements DrawMode {
@@ -76,9 +77,17 @@ export abstract class BaseDrawMode implements DrawMode {
     return isolatedEditor(context);
   }
 
+  setDefaultProperties(properties: Record<string, unknown>) {
+    this.config.defaultProperties = properties;
+  }
+
+  getDefaultProperties(): Record<string, unknown> | undefined {
+    return this.config.defaultProperties;
+  }
+
   protected createInitialFeature(draw: DrawController, coord: Position) {
     const initialCoords = this.config.pointCount === 1 ? [coord] : [coord, coord];
-    const feature = this.generate(draw, initialCoords);
+    const feature = this.generate(draw, initialCoords, undefined, this.config.defaultProperties);
     if (!feature) return;
 
     this.featureId = feature.id;
@@ -89,7 +98,8 @@ export abstract class BaseDrawMode implements DrawMode {
 
   protected updateShape(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
     if (!this.featureId) return;
-    const feature = this.generate(draw, coords, this.featureId, props);
+    const mergedProps = { ...this.config.defaultProperties, ...props };
+    const feature = this.generate(draw, coords, this.featureId, mergedProps);
     if (!feature) return;
     draw.state.updateFeature(this.featureId, feature);
   }

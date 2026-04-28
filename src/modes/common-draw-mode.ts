@@ -2,14 +2,14 @@ import { DrawController } from "../core";
 import type { Feature, LineString, Point, Polygon, Position } from "geojson";
 import { v4 as uuid } from "uuid";
 import { generateCircle, generateCommon, generateRect } from "../generators";
-import { BaseDrawMode } from "./base-draw-mode";
+import { BaseDrawMode, type BaseDrawModeConfig } from "./base-draw-mode";
 
 
 export class DrawPointMode extends BaseDrawMode {
   readonly name = "point";
 
-  constructor() {
-    super({ pointCount: 1 });
+  constructor(config?: Partial<BaseDrawModeConfig>) {
+    super({ pointCount: 1, ...config });
   }
 
   generate(
@@ -21,9 +21,9 @@ export class DrawPointMode extends BaseDrawMode {
     const feature = generateCommon<Point>("Point", points);
     feature.id = id ?? uuid();
     feature.properties = {
+      ...props,
       mode: this.name,
       handles: points,
-      ...props,
     };
     return feature;
   }
@@ -32,8 +32,8 @@ export class DrawPointMode extends BaseDrawMode {
 export class DrawLineStringMode extends BaseDrawMode {
   readonly name = "line";
 
-  constructor() {
-    super({ handleDisplay: "last" });
+  constructor(config?: Partial<BaseDrawModeConfig>) {
+    super({ handleDisplay: "last", ...config });
   }
 
   generate(
@@ -45,9 +45,9 @@ export class DrawLineStringMode extends BaseDrawMode {
     const feature = generateCommon<LineString>("LineString", points);
     feature.id = id ?? uuid();
     feature.properties = {
+      ...props,
       mode: this.name,
       handles: points,
-      ...props,
     };
     return feature;
   }
@@ -56,8 +56,8 @@ export class DrawLineStringMode extends BaseDrawMode {
 export class DrawPolygonMode extends BaseDrawMode {
   readonly name = "polygon";
 
-  constructor() {
-    super({ handleDisplay: "first-last" });
+  constructor(config?: Partial<BaseDrawModeConfig>) {
+    super({ handleDisplay: "first-last", ...config });
   }
 
   generate(
@@ -69,9 +69,9 @@ export class DrawPolygonMode extends BaseDrawMode {
     const feature = generateCommon<Polygon>("Polygon", points);
     feature.id = id ?? uuid();
     feature.properties = {
+      ...props,
       mode: this.name,
       handles: points,
-      ...props,
     };
     return feature;
   }
@@ -80,8 +80,8 @@ export class DrawPolygonMode extends BaseDrawMode {
 export class DrawCircleMode extends BaseDrawMode {
   readonly name = "circle";
 
-  constructor() {
-    super({ pointCount: 2, handleDisplay: "first" });
+  constructor(config?: Partial<BaseDrawModeConfig>) {
+    super({ pointCount: 2, handleDisplay: "first", ...config });
   }
 
   generate(
@@ -93,10 +93,10 @@ export class DrawCircleMode extends BaseDrawMode {
     const feature = generateCircle(points);
     feature.id = id ?? uuid();
     feature.properties = {
+      ...props,
       mode: this.name,
       handles: points,
       insertable: false,
-      ...props,
     };
     return feature;
   }
@@ -105,8 +105,8 @@ export class DrawCircleMode extends BaseDrawMode {
 export class DrawRectangleMode extends BaseDrawMode {
   readonly name = "rectangle";
 
-  constructor() {
-    super({ pointCount: 2, handleDisplay: "first" });
+  constructor(config?: Partial<BaseDrawModeConfig>) {
+    super({ pointCount: 2, handleDisplay: "first", ...config });
   }
 
   generate(
@@ -118,10 +118,10 @@ export class DrawRectangleMode extends BaseDrawMode {
     const feature = generateRect(points);
     feature.id = id ?? uuid();
     feature.properties = {
+      ...props,
       mode: this.name,
       handles: points,
       insertable: false,
-      ...props,
     };
     return feature;
   }
