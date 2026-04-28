@@ -63,6 +63,7 @@ export class DrawController {
 
   private _panning = false;
   private _warmUpEnabled: boolean;
+  private _warmUpFeatureIds: string[] = [];
   private _emitter = mitt<DrawControllerEvents>();
 
   constructor(deck: Deck, map: MaplibreMap, options?: DrawControllerOptions) {
@@ -84,6 +85,7 @@ export class DrawController {
   }
 
   public destroy() {
+    this._cleanupWarmup();
     this._unbindEvents();
   }
 
@@ -274,11 +276,19 @@ export class DrawController {
         properties: {},
       },
     ];
+    this._warmUpFeatureIds = tempFeatures.map((f) => f.id!.toString());
     this._state.addFeatures(tempFeatures);
     requestAnimationFrame(() => {
-      this._state.removeFeatures(tempFeatures.map((f) => f.id!.toString()));
+      this._cleanupWarmup();
     });
   };
+
+  private _cleanupWarmup() {
+    if (this._warmUpFeatureIds.length > 0) {
+      this._state.removeFeatures(this._warmUpFeatureIds);
+      this._warmUpFeatureIds = [];
+    }
+  }
 
   private _onMouseDown = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onMouseDown?.(this._buildInfo(e), this);
   private _onMouseMove = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onMouseMove?.(this._buildInfo(e), this);
