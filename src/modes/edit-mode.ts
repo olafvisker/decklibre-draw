@@ -1,4 +1,4 @@
-import type { DrawInfo, HandleProperties, EditContext } from "../core";
+import type { DrawInfo, HandleProperties, EditContext, HandleFeature } from "../core";
 import type { DrawMode } from "../core";
 import { DrawController } from "../core";
 import type { Feature, Position } from "geojson";
@@ -109,7 +109,7 @@ export class EditMode implements DrawMode {
       draw.state.updateFeature(feature.id, updated);
 
       this._dragStartCoord = [info.lng, info.lat];
-      this.createHandles(draw);
+      this.updateHandles(draw);
       return;
     }
 
@@ -122,7 +122,7 @@ export class EditMode implements DrawMode {
     if (this._dragType === "handle" && typeof this._dragHandleIndex === "number") {
       const updated = this.editHandle(selected, this._dragHandleIndex, dx, dy, draw);
       draw.state.updateFeature(selected.id, updated);
-      this.createHandles(draw);
+      this.updateHandles(draw);
     }
   }
 
@@ -196,6 +196,30 @@ export class EditMode implements DrawMode {
     }
   }
 
+  private updateHandles(draw: DrawController) {
+    const selected = this.getSelectedFeature(draw);
+    if (!selected?.id) return;
+
+    const coords: Position[] = selected.properties?.handles || [];
+    const existingHandles = draw.state.getHandles(selected.id);
+
+    // Separate handles and midpoints
+    const handles = existingHandles.filter(h => h.properties.handle);
+    const midpoints = existingHandles.filter(h => h.properties.midpoint);
+
+    // Update handle positions
+    handles.forEach((handle, i) => {
+      if (i < coords.length && handle.id) {
+        draw.state.updateHandle(handle.id, coords[i]);
+      }
+    });
+
+    // Update midpoint positions
+    if (selected.properties?.insertable !== false) {
+      this.updateMidpoints(coords, selected.geometry.type === "Polygon", midpoints, draw);
+    }
+  }
+
   private makeMidpoints(coords: Position[], isPolygon: boolean, draw: DrawController) {
     for (let i = 0; i < coords.length - 1; i++) {
       this.makeMidpoint(coords[i], coords[i + 1], i, draw);
@@ -211,6 +235,33 @@ export class EditMode implements DrawMode {
     const mb = toMercator(point(b)).geometry.coordinates;
     const mid = toWgs84(point([(ma[0] + mb[0]) / 2, (ma[1] + mb[1]) / 2])).geometry.coordinates;
     draw.state.createHandle(this.getSelectedFeature(draw)!.id!, mid, i, true);
+  }
+
+  private updateMidpoints(coords: Position[], isPolygon: boolean, existingMidpoints: HandleFeature[], draw: DrawController) {
+    let midpointIndex = 0;
+
+    for (let i = 0; i < coords.length - 1; i++) {
+      const mid = this.calculateMidpoint(coords[i], coords[i + 1]);
+      const midpointId = existingMidpoints[midpointIndex]?.id;
+      if (midpointId !== undefined) {
+        draw.state.updateHandle(midpointId, mid);
+        midpointIndex++;
+      }
+    }
+
+    if (isPolygon && coords.length > 2) {
+      const mid = this.calculateMidpoint(coords[coords.length - 1], coords[0]);
+      const midpointId = existingMidpoints[midpointIndex]?.id;
+      if (midpointId !== undefined) {
+        draw.state.updateHandle(midpointId, mid);
+      }
+    }
+  }
+
+  private calculateMidpoint(a: Position, b: Position): Position {
+    const ma = toMercator(point(a)).geometry.coordinates;
+    const mb = toMercator(point(b)).geometry.coordinates;
+    return toWgs84(point([(ma[0] + mb[0]) / 2, (ma[1] + mb[1]) / 2])).geometry.coordinates;
   }
 
   private deselectAll(draw: DrawController) {

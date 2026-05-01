@@ -167,6 +167,32 @@ export class DrawState {
     return this._handleMap.get(featureId) ?? [];
   }
 
+  public updateHandle(handleId: string | number, coord: Position) {
+    const handle = this._featureMap.get(handleId) as HandleFeature;
+    if (!handle) return;
+
+    const updated: HandleFeature = {
+      ...handle,
+      geometry: { type: "Point", coordinates: coord },
+    };
+
+    this._featureMap.set(handleId, updated);
+
+    // Update in handle map
+    const featureId = handle.properties.featureId;
+    const handles = this._handleMap.get(featureId);
+    if (handles) {
+      const index = handles.findIndex(h => h.id === handleId);
+      if (index !== -1) {
+        handles[index] = updated;
+      }
+    }
+
+    this._invalidateCache();
+    this._emit("feature:update", { features: [updated] });
+    this._emit("feature:change", { features: this.features });
+  }
+
   // --- Selection Management ---
   public get selectedIds(): (string | number)[] {
     return Array.from(this._selectedFeatureIds);
