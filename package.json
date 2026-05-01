@@ -31,7 +31,7 @@
     "uuid": "^13.0.0"
   },
   "peerDependencies": {
-    "@deck.gl/core": "9.1.15",
+    "@deck.gl/core": "^9.3.2",
     "maplibre-gl": "^5.10.0"
   },
   "devDependencies": {
