@@ -2,28 +2,31 @@ import type { Feature, GeoJsonProperties, Geometry, Point, Position } from "geoj
 import { v4 as uuid } from "uuid";
 import mitt from "mitt";
 
-export type DrawFeature = Feature<Geometry, DrawProperties>;
-export type HandleFeature = Feature<Point, HandleProperties>;
-
-export type DrawProperties = GeoJsonProperties & {
+export type ShapeFeatureProperties = GeoJsonProperties & {
   mode: string;
   handles: Position[];
   preview?: boolean;
   selected?: boolean;
 };
 
-export type HandleProperties = GeoJsonProperties & {
+export type HandleFeatureProperties = GeoJsonProperties & {
   handle?: boolean;
   midpoint?: boolean;
   featureId: string | number;
   index: number;
 };
 
+export type DrawFeatureProperties = Partial<ShapeFeatureProperties & HandleFeatureProperties> | null;
+
+export type DrawFeature = Feature<Geometry, DrawFeatureProperties>;
+export type ShapeFeature = Feature<Geometry, ShapeFeatureProperties>;
+export type HandleFeature = Feature<Point, HandleFeatureProperties>;
+
 export type DrawStateEvents = {
-  "feature:add": { features: Feature[] };
+  "feature:add": { features: DrawFeature[] };
   "feature:remove": { ids: (string | number)[] };
-  "feature:update": { features: Feature[] };
-  "feature:change": { features: Feature[] };
+  "feature:update": { features: DrawFeature[] };
+  "feature:change": { features: DrawFeature[] };
   "selection:change": { selectedIds: (string | number)[] };
 };
 
@@ -34,12 +37,12 @@ export interface DrawStateOptions {
 export class DrawState {
   private _emitter = mitt<DrawStateEvents>();
 
-  private _featureMap: Map<string | number, Feature> = new Map();
+  private _featureMap: Map<string | number, DrawFeature> = new Map();
   private _handleMap: Map<string | number, HandleFeature[]> = new Map();
   private _selectedFeatureIds = new Set<string | number>();
 
   // Cache the features array - only recreate when map changes
-  private _featuresCache: Feature[] = [];
+  private _featuresCache: DrawFeature[] = [];
   private _featuresCacheDirty = true;
 
   constructor(options?: DrawStateOptions) {
@@ -51,7 +54,7 @@ export class DrawState {
   private _emit = this._emitter.emit;
 
   // --- Feature Management ---
-  public get features(): Feature[] {
+  public get features(): DrawFeature[] {
     if (this._featuresCacheDirty) {
       this._featuresCache = Array.from(this._featureMap.values());
       this._featuresCacheDirty = false;
@@ -63,7 +66,7 @@ export class DrawState {
     this._featuresCacheDirty = true;
   }
 
-  public getFeature(id: string | number) {
+  public getFeature(id: string | number): DrawFeature | undefined {
     return this._featureMap.get(id);
   }
 
@@ -72,12 +75,14 @@ export class DrawState {
   }
 
   public addFeatures(features: Feature[]) {
-    const added: Feature[] = [];
+    const added: DrawFeature[] = [];
     if (!features.length) return;
     for (const f of features) {
       if (f.id === undefined) continue;
-      this._featureMap.set(f.id!, f);
-      added.push(f);
+      // Cast to UnifiedFeature - the type is compatible
+      const unifiedFeature = f as DrawFeature;
+      this._featureMap.set(f.id!, unifiedFeature);
+      added.push(unifiedFeature);
     }
     this._invalidateCache();
     this._emit("feature:add", { features: added });
@@ -182,7 +187,7 @@ export class DrawState {
     const featureId = handle.properties.featureId;
     const handles = this._handleMap.get(featureId);
     if (handles) {
-      const index = handles.findIndex(h => h.id === handleId);
+      const index = handles.findIndex((h) => h.id === handleId);
       if (index !== -1) {
         handles[index] = updated;
       }
@@ -218,11 +223,10 @@ export class DrawState {
     const updatedFeatures: Feature[] = [];
 
     for (const [id, feature] of this._featureMap.entries()) {
-      const f = feature as DrawFeature;
+      const f = feature as ShapeFeature;
       const selected = this._selectedFeatureIds.has(id);
       if (f.properties.selected !== selected) {
-        // Create new feature with updated selection instead of mutating
-        const updated: DrawFeature = {
+        const updated: ShapeFeature = {
           ...f,
           properties: { ...f.properties, selected },
         };

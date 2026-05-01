@@ -73,11 +73,11 @@ export class SelectMode implements DrawMode {
     const dy = info.lat - this._dragStartCoord[1];
 
     const feature = draw.state.getFeature(this._dragFeatureId);
-    if (!feature || !feature.id) return;
+    if (!feature || !feature.id || !feature.properties?.mode) return;
 
-    const handles: Position[] = feature.properties?.handles || [];
+    const handles: Position[] = feature.properties.handles || [];
 
-    const mode = draw.getMode(feature.properties?.mode);
+    const mode = draw.getMode(feature.properties.mode);
     if (mode) {
       const movedHandles = handles.map(([x, y]) => [x + dx, y + dy]);
       const updated = mode.generate?.(draw, movedHandles, feature.id, { ...feature.properties, handles: movedHandles });

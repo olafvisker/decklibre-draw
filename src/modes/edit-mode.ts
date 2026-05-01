@@ -1,4 +1,4 @@
-import type { DrawInfo, HandleProperties, EditContext, HandleFeature } from "../core";
+import type { DrawInfo, HandleFeatureProperties, EditContext, HandleFeature } from "../core";
 import type { DrawMode } from "../core";
 import { DrawController } from "../core";
 import type { Feature, Position } from "geojson";
@@ -72,7 +72,7 @@ export class EditMode implements DrawMode {
     const f = info.feature;
     if (!f || !f.id) return draw.setDoubleClickZoom(true);
 
-    const { handle, midpoint, index } = (f.properties as HandleProperties) || {};
+    const { handle, midpoint, index } = (f.properties as HandleFeatureProperties) || {};
 
     if (this.dragWithoutSelect || draw.state.isSelected(f.id)) {
       if (!handle && !midpoint) {
