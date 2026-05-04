@@ -34,6 +34,10 @@ export interface DrawStateOptions {
   features?: Feature[];
 }
 
+export interface DrawStateMethodOptions {
+  silent?: boolean;
+}
+
 export class DrawState {
   private _emitter = mitt<DrawStateEvents>();
 
@@ -70,30 +74,68 @@ export class DrawState {
     return this._featureMap.get(id);
   }
 
-  public addFeature(feature: Feature, silent?: boolean) {
-    this.addFeatures([feature], silent);
+  private _normalizeFeature(f: Feature): DrawFeature {
+    const feature = { ...f, id: f.id ?? uuid() } as DrawFeature;
+
+    // Check if this is a handle feature (has handle-specific properties)
+    const isHandle = feature.properties && ('handle' in feature.properties || 'midpoint' in feature.properties || 'featureId' in feature.properties);
+
+    // If it's not a handle and missing shape properties, add defaults
+    if (!isHandle) {
+      const props = (feature.properties || {}) as Partial<ShapeFeatureProperties>;
+      if (!props.mode || !props.handles) {
+        const handles = this._extractHandles(feature.geometry);
+        feature.properties = {
+          mode: props.mode ?? 'simple',
+          handles: props.handles ?? handles,
+          preview: props.preview,
+          selected: props.selected,
+        };
+      }
+    }
+
+    return feature;
   }
 
-  public addFeatures(features: Feature[], silent?: boolean) {
+  private _extractHandles(geometry: Geometry): Position[] {
+    if (!geometry) return [];
+
+    switch (geometry.type) {
+      case 'Point':
+        return [geometry.coordinates];
+      case 'LineString':
+        return geometry.coordinates;
+      case 'Polygon':
+        return geometry.coordinates[0] || [];
+      default:
+        return [];
+    }
+  }
+
+  public addFeature(feature: Feature, options?: DrawStateMethodOptions) {
+    this.addFeatures([feature], options);
+  }
+
+  public addFeatures(features: Feature[], options?: DrawStateMethodOptions) {
     const added: DrawFeature[] = [];
     if (!features.length) return;
     for (const f of features) {
-      const feature = { ...f, id: f.id ?? uuid() } as DrawFeature;
+      const feature = this._normalizeFeature(f);
       this._featureMap.set(feature.id!, feature);
       added.push(feature);
     }
     this._invalidateCache();
-    if (!silent) {
+    if (!options?.silent) {
       this._emit("feature:add", { features: added });
       this._emit("feature:change", { features: this.features });
     }
   }
 
-  public removeFeature(id: string | number, silent?: boolean) {
-    return this.removeFeatures([id], silent);
+  public removeFeature(id: string | number, options?: DrawStateMethodOptions) {
+    return this.removeFeatures([id], options);
   }
 
-  public removeFeatures(ids: (string | number)[], silent?: boolean) {
+  public removeFeatures(ids: (string | number)[], options?: DrawStateMethodOptions) {
     if (!ids.length) return;
     let selectionChanged = false;
     for (const id of ids) {
@@ -101,34 +143,34 @@ export class DrawState {
       if (this._selectedFeatureIds.delete(id)) {
         selectionChanged = true;
       }
-      this.clearHandles(id, silent);
+      this.clearHandles(id, options);
     }
     this._invalidateCache();
-    if (!silent) {
+    if (!options?.silent) {
       this._emit("feature:remove", { ids });
       this._emit("feature:change", { features: this.features });
       if (selectionChanged) this._emit("selection:change", { selectedIds: this.selectedIds });
     }
   }
 
-  public removeAllFeature(silent?: boolean) {
+  public removeAllFeature(options?: DrawStateMethodOptions) {
     const ids = Array.from(this._featureMap.keys());
     for (const featureId of this._handleMap.keys()) {
-      this.clearHandles(featureId, silent);
+      this.clearHandles(featureId, options);
     }
     const hadSelection = this._selectedFeatureIds.size > 0;
     this._featureMap.clear();
     this._selectedFeatureIds.clear();
     this._invalidateCache();
 
-    if (!silent) {
+    if (!options?.silent) {
       this._emit("feature:remove", { ids });
       this._emit("feature:change", { features: this.features });
       if (hadSelection) this._emit("selection:change", { selectedIds: [] });
     }
   }
 
-  public updateFeature(id: string | number, updates: Partial<Feature>, silent?: boolean) {
+  public updateFeature(id: string | number, updates: Partial<Feature>, options?: DrawStateMethodOptions) {
     const feature = this._featureMap.get(id);
     if (!feature) return;
 
@@ -140,7 +182,7 @@ export class DrawState {
 
     this._featureMap.set(id, updated);
     this._invalidateCache();
-    if (!silent) {
+    if (!options?.silent) {
       this._emit("feature:update", { features: [updated] });
       this._emit("feature:change", { features: this.features });
     }
@@ -166,10 +208,10 @@ export class DrawState {
     return handle;
   }
 
-  public clearHandles(featureId: string | number, silent?: boolean) {
+  public clearHandles(featureId: string | number, options?: DrawStateMethodOptions) {
     const handle = this._handleMap.get(featureId);
     if (handle) {
-      this.removeFeatures(handle.map((h) => h.id!), silent);
+      this.removeFeatures(handle.map((h) => h.id!), options);
       this._handleMap.delete(featureId);
     }
   }
@@ -178,7 +220,7 @@ export class DrawState {
     return this._handleMap.get(featureId) ?? [];
   }
 
-  public updateHandle(handleId: string | number, coord: Position, silent?: boolean) {
+  public updateHandle(handleId: string | number, coord: Position, options?: DrawStateMethodOptions) {
     const handle = this._featureMap.get(handleId) as HandleFeature;
     if (!handle) return;
 
@@ -200,7 +242,7 @@ export class DrawState {
     }
 
     this._invalidateCache();
-    if (!silent) {
+    if (!options?.silent) {
       this._emit("feature:update", { features: [updated] });
       this._emit("feature:change", { features: this.features });
     }
@@ -215,18 +257,18 @@ export class DrawState {
     return this._selectedFeatureIds.has(id);
   }
 
-  public setSelected(id: string | number, silent?: boolean) {
+  public setSelected(id: string | number, options?: DrawStateMethodOptions) {
     this._selectedFeatureIds.clear();
     this._selectedFeatureIds.add(id);
-    this._syncSelectionState(silent);
+    this._syncSelectionState(options);
   }
 
-  public clearSelection(silent?: boolean) {
+  public clearSelection(options?: DrawStateMethodOptions) {
     this._selectedFeatureIds.clear();
-    this._syncSelectionState(silent);
+    this._syncSelectionState(options);
   }
 
-  private _syncSelectionState(silent?: boolean) {
+  private _syncSelectionState(options?: DrawStateMethodOptions) {
     let changed = false;
     const updatedFeatures: Feature[] = [];
 
@@ -246,7 +288,7 @@ export class DrawState {
 
     if (changed) {
       this._invalidateCache();
-      if (!silent) {
+      if (!options?.silent) {
         this._emit("selection:change", { selectedIds: this.selectedIds });
         this._emit("feature:update", { features: updatedFeatures });
         this._emit("feature:change", { features: this.features });

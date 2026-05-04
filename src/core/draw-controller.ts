@@ -277,7 +277,7 @@ export class DrawController {
       },
     ];
     this._warmUpFeatureIds = tempFeatures.map((f) => f.id!.toString());
-    this._state.addFeatures(tempFeatures);
+    this._state.addFeatures(tempFeatures, { silent: true });
     requestAnimationFrame(() => {
       this._cleanupWarmup();
     });
