@@ -78,7 +78,9 @@ export class DrawState {
     const feature = { ...f, id: f.id ?? uuid() } as DrawFeature;
 
     // Check if this is a handle feature (has handle-specific properties)
-    const isHandle = feature.properties && ('handle' in feature.properties || 'midpoint' in feature.properties || 'featureId' in feature.properties);
+    const isHandle =
+      feature.properties &&
+      ("handle" in feature.properties || "midpoint" in feature.properties || "featureId" in feature.properties);
 
     // If it's not a handle and missing shape properties, add defaults
     if (!isHandle) {
@@ -87,10 +89,10 @@ export class DrawState {
         const handles = this._extractHandles(feature.geometry);
         feature.properties = {
           ...props,
-          mode: props.mode ?? 'simple',
+          mode: props.mode ?? "simple",
           handles: props.handles ?? handles,
-          preview: props.preview,
-          selected: props.selected,
+          preview: !!props.preview,
+          selected: !!props.selected,
         };
       }
     }
@@ -102,11 +104,11 @@ export class DrawState {
     if (!geometry) return [];
 
     switch (geometry.type) {
-      case 'Point':
+      case "Point":
         return [geometry.coordinates];
-      case 'LineString':
+      case "LineString":
         return geometry.coordinates;
-      case 'Polygon':
+      case "Polygon":
         return geometry.coordinates[0] || [];
       default:
         return [];
@@ -212,7 +214,10 @@ export class DrawState {
   public clearHandles(featureId: string | number, options?: DrawStateMethodOptions) {
     const handle = this._handleMap.get(featureId);
     if (handle) {
-      this.removeFeatures(handle.map((h) => h.id!), options);
+      this.removeFeatures(
+        handle.map((h) => h.id!),
+        options,
+      );
       this._handleMap.delete(featureId);
     }
   }
