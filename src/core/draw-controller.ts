@@ -1,7 +1,7 @@
 import type { Deck } from "@deck.gl/core";
 import type { Feature, Position } from "geojson";
 import type { DrawInfo, DrawMode } from "./draw-mode";
-import type { DrawStateEvents } from "./draw-state";
+import type { DrawStateEvents, DrawFeature } from "./draw-state";
 import { DrawState } from "./draw-state";
 import { v4 as uuid } from "uuid";
 import { Map as MaplibreMap, MapMouseEvent, MapTouchEvent } from "maplibre-gl";
@@ -94,7 +94,7 @@ export class DrawController {
   private _emit = this._emitter.emit;
 
   /** Getters */
-  public get features(): Feature[] {
+  public get features(): DrawFeature[] {
     return this._state.features;
   }
 
