@@ -86,6 +86,7 @@ export class DrawState {
       if (!props.mode || !props.handles) {
         const handles = this._extractHandles(feature.geometry);
         feature.properties = {
+          ...props,
           mode: props.mode ?? 'simple',
           handles: props.handles ?? handles,
           preview: props.preview,
