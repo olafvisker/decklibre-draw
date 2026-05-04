@@ -75,9 +75,9 @@ export class DrawState {
     const added: Feature[] = [];
     if (!features.length) return;
     for (const f of features) {
-      if (f.id === undefined) continue;
-      this._featureMap.set(f.id!, f);
-      added.push(f);
+      const feature = { ...f, id: f.id ?? uuid() };
+      this._featureMap.set(feature.id!, feature);
+      added.push(feature);
     }
     this._invalidateCache();
     this._emit("feature:add", { features: added });
@@ -182,7 +182,7 @@ export class DrawState {
     const featureId = handle.properties.featureId;
     const handles = this._handleMap.get(featureId);
     if (handles) {
-      const index = handles.findIndex(h => h.id === handleId);
+      const index = handles.findIndex((h) => h.id === handleId);
       if (index !== -1) {
         handles[index] = updated;
       }
