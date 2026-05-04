@@ -245,7 +245,7 @@ export class DrawController {
         id: uuid(),
         type: "Feature",
         geometry: { type: "Point", coordinates: [0, 0] },
-        properties: {},
+        properties: { type: "warmup" },
       },
       {
         id: uuid(),
@@ -257,7 +257,7 @@ export class DrawController {
             [1, 1],
           ],
         },
-        properties: {},
+        properties: { type: "warmup" },
       },
       {
         id: uuid(),
@@ -273,7 +273,7 @@ export class DrawController {
             ],
           ],
         },
-        properties: {},
+        properties: { type: "warmup" },
       },
     ];
     this._warmUpFeatureIds = tempFeatures.map((f) => f.id!.toString());
