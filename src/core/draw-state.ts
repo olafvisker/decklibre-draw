@@ -78,9 +78,9 @@ export class DrawState {
     const added: DrawFeature[] = [];
     if (!features.length) return;
     for (const f of features) {
-      if (f.id === undefined) continue;
-      this._featureMap.set(f.id!, f);
-      added.push(f);
+      const feature = { ...f, id: f.id ?? uuid() } as DrawFeature;
+      this._featureMap.set(feature.id!, feature);
+      added.push(feature);
     }
     this._invalidateCache();
     if (!silent) {
