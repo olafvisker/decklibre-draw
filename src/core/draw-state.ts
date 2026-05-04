@@ -91,8 +91,6 @@ export class DrawState {
           ...props,
           mode: props.mode ?? "simple",
           handles: props.handles ?? handles,
-          preview: !!props.preview,
-          selected: !!props.selected,
         };
       }
     }
