@@ -77,6 +77,21 @@ const pointMode = new DrawPointMode({
 pointMode.setDefaultProperties({ color: 'blue' });
 ```
 
+#### Programmatic Feature Creation
+
+Create features programmatically using a mode's generator, ensuring they have the correct properties (mode, handles) for editing:
+
+```ts
+// Via controller - simplest
+controller.createFeature("point", [[lng, lat]], { type: 'marker' });
+
+// Or directly via mode
+const mode = controller.getMode("point");
+mode?.createFeature(controller, [[lng, lat]], { type: 'marker' });
+```
+
+Both methods use the mode's `generate()` function and add the feature to state, making it immediately editable.
+
 ### Events
 
 | Event            | Payload                         | Description                  |
