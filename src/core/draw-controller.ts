@@ -120,6 +120,11 @@ export class DrawController {
     this._modes[name] = instance;
   }
 
+  public createFeature(modeName: string, points: Position[], props?: Record<string, unknown>): Feature | undefined {
+    const mode = this.getMode(modeName);
+    return mode?.createFeature?.(this, points, props);
+  }
+
   public unregisterMode(name: string) {
     if (!this._modes[name]) return;
 

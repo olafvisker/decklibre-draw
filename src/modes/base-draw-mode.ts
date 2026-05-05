@@ -70,7 +70,7 @@ export abstract class BaseDrawMode implements DrawMode {
     draw: DrawController,
     points: Position[],
     id?: string | number,
-    props?: Record<string, unknown>
+    props?: Record<string, unknown>,
   ): Feature | undefined;
 
   edit(context: EditContext): Position[] {
@@ -85,11 +85,7 @@ export abstract class BaseDrawMode implements DrawMode {
     return this.config.defaultProperties;
   }
 
-  public addFeature(
-    draw: DrawController,
-    points: Position[],
-    props?: Record<string, unknown>
-  ): Feature | undefined {
+  public createFeature(draw: DrawController, points: Position[], props?: Record<string, unknown>): Feature | undefined {
     const mergedProps = { ...this.config.defaultProperties, ...props };
     const feature = this.generate(draw, points, undefined, mergedProps);
     if (!feature) return undefined;
