@@ -34,5 +34,11 @@ export interface DrawMode {
     props?: Record<string, unknown>
   ): Feature | undefined;
 
+  addFeature?(
+    draw: DrawController,
+    points: Position[],
+    props?: Record<string, unknown>
+  ): Feature | undefined;
+
   edit?(context: EditContext): Position[];
 }

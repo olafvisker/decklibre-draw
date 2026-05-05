@@ -85,6 +85,18 @@ export abstract class BaseDrawMode implements DrawMode {
     return this.config.defaultProperties;
   }
 
+  public addFeature(
+    draw: DrawController,
+    points: Position[],
+    props?: Record<string, unknown>
+  ): Feature | undefined {
+    const mergedProps = { ...this.config.defaultProperties, ...props };
+    const feature = this.generate(draw, points, undefined, mergedProps);
+    if (!feature) return undefined;
+    draw.state.addFeature(feature);
+    return feature;
+  }
+
   protected createInitialFeature(draw: DrawController, coord: Position) {
     const initialCoords = this.config.pointCount === 1 ? [coord] : [coord, coord];
     const feature = this.generate(draw, initialCoords, undefined, this.config.defaultProperties);
