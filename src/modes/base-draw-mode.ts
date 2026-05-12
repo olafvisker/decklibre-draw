@@ -6,7 +6,10 @@ import type { Feature, Position } from "geojson";
 export interface BaseDrawModeConfig {
   pointCount?: number;
   handleDisplay?: "none" | "first" | "last" | "first-last" | "all";
-  defaultProperties?: Record<string, unknown>;
+}
+
+export interface BaseDrawModeOptions extends BaseDrawModeConfig {
+  properties?: Record<string, unknown>;
 }
 
 export abstract class BaseDrawMode implements DrawMode {
@@ -15,9 +18,12 @@ export abstract class BaseDrawMode implements DrawMode {
   protected config: BaseDrawModeConfig;
   protected coordinates: Position[] = [];
   protected featureId?: string | number;
+  public properties?: Record<string, unknown>;
 
-  constructor(config: BaseDrawModeConfig) {
+  constructor(options: BaseDrawModeOptions = {}) {
+    const { properties, ...config } = options;
     this.config = config;
+    this.properties = properties;
   }
 
   onEnter(draw: DrawController) {
@@ -77,16 +83,8 @@ export abstract class BaseDrawMode implements DrawMode {
     return isolatedEditor(context);
   }
 
-  setDefaultProperties(properties: Record<string, unknown>) {
-    this.config.defaultProperties = properties;
-  }
-
-  getDefaultProperties(): Record<string, unknown> | undefined {
-    return this.config.defaultProperties;
-  }
-
   public createFeature(draw: DrawController, points: Position[], props?: Record<string, unknown>): Feature | undefined {
-    const mergedProps = { ...this.config.defaultProperties, ...props };
+    const mergedProps = { ...this.properties, ...props };
     const feature = this.generate(draw, points, undefined, mergedProps);
     if (!feature) return undefined;
     draw.state.addFeature(feature);
@@ -95,7 +93,7 @@ export abstract class BaseDrawMode implements DrawMode {
 
   protected createInitialFeature(draw: DrawController, coord: Position) {
     const initialCoords = this.config.pointCount === 1 ? [coord] : [coord, coord];
-    const feature = this.generate(draw, initialCoords, undefined, this.config.defaultProperties);
+    const feature = this.generate(draw, initialCoords, undefined, this.properties);
     if (!feature) return;
 
     this.featureId = feature.id;
@@ -106,7 +104,7 @@ export abstract class BaseDrawMode implements DrawMode {
 
   protected updateShape(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
     if (!this.featureId) return;
-    const mergedProps = { ...this.config.defaultProperties, ...props };
+    const mergedProps = { ...this.properties, ...props };
     const feature = this.generate(draw, coords, this.featureId, mergedProps);
     if (!feature) return;
     draw.state.updateFeature(this.featureId, feature);

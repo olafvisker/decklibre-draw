@@ -70,11 +70,11 @@ Set default properties that are automatically added to every feature drawn with 
 ```ts
 // When creating a mode
 const pointMode = new DrawPointMode({
-  defaultProperties: { color: 'red', category: 'marker' }
+  properties: { color: 'red', category: 'marker' }
 });
 
 // Or update dynamically
-pointMode.setDefaultProperties({ color: 'blue' });
+pointMode.changeModeOptions({ properties: { color: 'blue' } });
 ```
 
 #### Programmatic Feature Creation
@@ -82,7 +82,7 @@ pointMode.setDefaultProperties({ color: 'blue' });
 Create features programmatically using a mode's generator, ensuring they have the correct properties (mode, handles) for editing:
 
 ```ts
-// Via controller - simplest
+// Via controller
 controller.createFeature("point", [[lng, lat]], { type: 'marker' });
 
 // Or directly via mode

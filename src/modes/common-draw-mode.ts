@@ -2,13 +2,13 @@ import { DrawController } from "../core";
 import type { Feature, LineString, Point, Polygon, Position } from "geojson";
 import { v4 as uuid } from "uuid";
 import { generateCircle, generateCommon, generateRect } from "../generators";
-import { BaseDrawMode, type BaseDrawModeConfig } from "./base-draw-mode";
+import { BaseDrawMode, type BaseDrawModeOptions } from "./base-draw-mode";
 
 
 export class DrawPointMode extends BaseDrawMode {
   readonly name = "point";
 
-  constructor(config?: Partial<BaseDrawModeConfig>) {
+  constructor(config?: Partial<BaseDrawModeOptions>) {
     super({ pointCount: 1, ...config });
   }
 
@@ -32,7 +32,7 @@ export class DrawPointMode extends BaseDrawMode {
 export class DrawLineStringMode extends BaseDrawMode {
   readonly name = "line";
 
-  constructor(config?: Partial<BaseDrawModeConfig>) {
+  constructor(config?: Partial<BaseDrawModeOptions>) {
     super({ handleDisplay: "last", ...config });
   }
 
@@ -56,7 +56,7 @@ export class DrawLineStringMode extends BaseDrawMode {
 export class DrawPolygonMode extends BaseDrawMode {
   readonly name = "polygon";
 
-  constructor(config?: Partial<BaseDrawModeConfig>) {
+  constructor(config?: Partial<BaseDrawModeOptions>) {
     super({ handleDisplay: "first-last", ...config });
   }
 
@@ -80,7 +80,7 @@ export class DrawPolygonMode extends BaseDrawMode {
 export class DrawCircleMode extends BaseDrawMode {
   readonly name = "circle";
 
-  constructor(config?: Partial<BaseDrawModeConfig>) {
+  constructor(config?: Partial<BaseDrawModeOptions>) {
     super({ pointCount: 2, handleDisplay: "first", ...config });
   }
 
@@ -105,7 +105,7 @@ export class DrawCircleMode extends BaseDrawMode {
 export class DrawRectangleMode extends BaseDrawMode {
   readonly name = "rectangle";
 
-  constructor(config?: Partial<BaseDrawModeConfig>) {
+  constructor(config?: Partial<BaseDrawModeOptions>) {
     super({ pointCount: 2, handleDisplay: "first", ...config });
   }
 
