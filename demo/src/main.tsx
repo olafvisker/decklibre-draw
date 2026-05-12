@@ -53,7 +53,7 @@ const modes: { label: string; icon: React.ReactNode; mode: string }[] = [
 
 function Toolbar({ draw }: { draw: DrawController | null }) {
   const [activeMode, setActiveMode] = useState(draw?.currentMode ?? "static");
-  const [dragWithoutSelect, setDragWithoutSelect] = useState(false);
+  const [dragWithoutSelect, setDragWithoutSelect] = useState(true);
 
   useEffect(() => {
     if (!draw) return;
@@ -135,6 +135,9 @@ function Root() {
 
   const handleLoad = (deck: Deck, map: maplibregl.Map) => {
     const draw = new DrawController(deck, map, { layerIds: ["geojson-layer"] });
+    draw.changeModeOptions<SelectMode>("select", { dragWithoutSelect: true });
+    draw.changeModeOptions<EditMode>("edit", { dragWithoutSelect: true });
+
     draw.on("feature:change", (e) => setFeatures(e.features));
     drawRef.current = draw;
   };
