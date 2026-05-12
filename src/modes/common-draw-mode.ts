@@ -8,8 +8,8 @@ import { BaseDrawMode, type BaseDrawModeOptions } from "./base-draw-mode";
 export class DrawPointMode extends BaseDrawMode {
   readonly name = "point";
 
-  constructor(config?: Partial<BaseDrawModeOptions>) {
-    super({ pointCount: 1, ...config });
+  constructor(options?: Partial<BaseDrawModeOptions>) {
+    super({ pointCount: 1, ...options });
   }
 
   generate(
@@ -32,8 +32,8 @@ export class DrawPointMode extends BaseDrawMode {
 export class DrawLineStringMode extends BaseDrawMode {
   readonly name = "line";
 
-  constructor(config?: Partial<BaseDrawModeOptions>) {
-    super({ handleDisplay: "last", ...config });
+  constructor(options?: Partial<BaseDrawModeOptions>) {
+    super({ handleDisplay: "last", ...options });
   }
 
   generate(
@@ -56,8 +56,8 @@ export class DrawLineStringMode extends BaseDrawMode {
 export class DrawPolygonMode extends BaseDrawMode {
   readonly name = "polygon";
 
-  constructor(config?: Partial<BaseDrawModeOptions>) {
-    super({ handleDisplay: "first-last", ...config });
+  constructor(options?: Partial<BaseDrawModeOptions>) {
+    super({ handleDisplay: "first-last", ...options });
   }
 
   generate(
@@ -80,8 +80,8 @@ export class DrawPolygonMode extends BaseDrawMode {
 export class DrawCircleMode extends BaseDrawMode {
   readonly name = "circle";
 
-  constructor(config?: Partial<BaseDrawModeOptions>) {
-    super({ pointCount: 2, handleDisplay: "first", ...config });
+  constructor(options?: Partial<BaseDrawModeOptions>) {
+    super({ pointCount: 2, handleDisplay: "first", ...options });
   }
 
   generate(
@@ -105,8 +105,8 @@ export class DrawCircleMode extends BaseDrawMode {
 export class DrawRectangleMode extends BaseDrawMode {
   readonly name = "rectangle";
 
-  constructor(config?: Partial<BaseDrawModeOptions>) {
-    super({ pointCount: 2, handleDisplay: "first", ...config });
+  constructor(options?: Partial<BaseDrawModeOptions>) {
+    super({ pointCount: 2, handleDisplay: "first", ...options });
   }
 
   generate(

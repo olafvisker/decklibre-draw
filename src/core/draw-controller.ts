@@ -159,7 +159,16 @@ export class DrawController {
   public changeModeOptions<T extends DrawMode>(name: string, options: Partial<T>): void {
     const mode = this._modes[name] as T | undefined;
     if (!mode) throw new Error(`Mode "${name}" is not registered.`);
-    Object.assign(mode, options);
+
+    // Merge properties if provided
+    if ('properties' in options && options.properties) {
+      const currentProperties = (mode as any).properties || {};
+      Object.assign(mode, options, {
+        properties: { ...currentProperties, ...options.properties }
+      });
+    } else {
+      Object.assign(mode, options);
+    }
 
     this._emit("mode:options", { name, options });
   }

@@ -42,10 +42,16 @@ const controller = new DrawController(deck, map, {
 
 draw.on("feature:change", (e) => console.log(e.features));
 
-// Switch modes, switch & update options, update options
+// Switch modes and update options
 controller.changeMode("circle");
 controller.changeMode<SelectMode>("select", { dragWithoutSelect: false });
+
+// Update mode options (automatically merges properties)
 controller.changeModeOptions<SelectMode>("select", { dragWithoutSelect: true });
+controller.changeModeOptions("point", { properties: { color: "red" } });
+
+// To fully replace properties, access the mode directly
+controller.getMode("point").properties = { color: "blue" };
 ```
 
 ### Default Modes
@@ -69,12 +75,15 @@ Set default properties that are automatically added to every feature drawn with 
 
 ```ts
 // When creating a mode
-const pointMode = new DrawPointMode({
+const pointMode = new DrawPointMode({ 
   properties: { color: 'red', category: 'marker' }
 });
 
-// Or update dynamically
-pointMode.changeModeOptions({ properties: { color: 'blue' } });
+// Update properties dynamically (automatically merges)
+controller.changeModeOptions("point", { properties: { color: 'blue' } });
+
+// Replace properties entirely (direct access)
+controller.getMode("point").properties = { color: 'green', size: 10 };
 ```
 
 #### Programmatic Feature Creation
