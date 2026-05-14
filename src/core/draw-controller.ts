@@ -161,10 +161,10 @@ export class DrawController {
     if (!mode) throw new Error(`Mode "${name}" is not registered.`);
 
     // Merge properties if provided
-    if ('properties' in options && options.properties) {
+    if ("properties" in options && options.properties) {
       const currentProperties = (mode as any).properties || {};
       Object.assign(mode, options, {
-        properties: { ...currentProperties, ...options.properties }
+        properties: { ...currentProperties, ...options.properties },
       });
     } else {
       Object.assign(mode, options);
@@ -213,6 +213,10 @@ export class DrawController {
   public unproject(point: Position): Position {
     const lngLat = this._map.unproject({ x: point[0], y: point[1] } as PointLike);
     return [lngLat.lng, lngLat.lat];
+  }
+
+  public get zoom(): number {
+    return this._map.getZoom();
   }
 
   /** Event binding */
