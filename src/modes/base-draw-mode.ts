@@ -13,7 +13,7 @@ export interface BaseDrawModeOptions extends BaseDrawModeConfig {
 }
 
 export abstract class BaseDrawMode implements DrawMode {
-  abstract readonly name: string;
+  abstract name: string;
 
   protected config: BaseDrawModeConfig;
   protected coordinates: Position[] = [];
