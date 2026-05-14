@@ -10,7 +10,7 @@ interface SelectModeOptions {
 }
 
 export class SelectMode implements DrawMode {
-  readonly name = "select";
+  name = "select";
 
   public startSelectedId?: string | number;
   public dragWithoutSelect = false;

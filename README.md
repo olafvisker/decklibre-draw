@@ -152,7 +152,7 @@ export interface DrawInfo {
 }
 
 export interface DrawMode {
-  readonly name: string;
+  name: string;
 
   onEnter?: (draw: DrawController) => void;
   onExit?: (draw: DrawController) => void;
@@ -181,7 +181,7 @@ You can also extend the `BaseDrawMode` which handles the basic coordinate collec
 
 ```ts
 export class DrawTriangleMode extends BaseDrawMode {
-  readonly name = "triangle";
+  name = "triangle";
 
   constructor() {
     super({ pointCount: 3, handleDisplay: "first-last" });

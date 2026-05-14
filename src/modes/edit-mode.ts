@@ -13,7 +13,7 @@ interface EditModeOptions {
 }
 
 export class EditMode implements DrawMode {
-  readonly name = "edit";
+  name = "edit";
 
   public startSelectedId?: string | number;
   public dragWithoutSelect = false;
@@ -204,8 +204,8 @@ export class EditMode implements DrawMode {
     const existingHandles = draw.state.getHandles(selected.id);
 
     // Separate handles and midpoints
-    const handles = existingHandles.filter(h => h.properties.handle);
-    const midpoints = existingHandles.filter(h => h.properties.midpoint);
+    const handles = existingHandles.filter((h) => h.properties.handle);
+    const midpoints = existingHandles.filter((h) => h.properties.midpoint);
 
     // Update handle positions
     handles.forEach((handle, i) => {
@@ -237,7 +237,12 @@ export class EditMode implements DrawMode {
     draw.state.createHandle(this.getSelectedFeature(draw)!.id!, mid, i, true);
   }
 
-  private updateMidpoints(coords: Position[], isPolygon: boolean, existingMidpoints: HandleFeature[], draw: DrawController) {
+  private updateMidpoints(
+    coords: Position[],
+    isPolygon: boolean,
+    existingMidpoints: HandleFeature[],
+    draw: DrawController,
+  ) {
     let midpointIndex = 0;
 
     for (let i = 0; i < coords.length - 1; i++) {

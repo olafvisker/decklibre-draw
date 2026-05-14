@@ -16,7 +16,7 @@ export interface EditContext {
 }
 
 export interface DrawMode {
-  readonly name: string;
+  name: string;
 
   onEnter?: (draw: DrawController) => void;
   onExit?: (draw: DrawController) => void;
