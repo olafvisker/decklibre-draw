@@ -4,8 +4,7 @@ import { DrawController } from "../core";
 import { getGroupIds, getPrimaryFeature } from "../core/group-utils";
 import type { Feature, Position } from "geojson";
 import { toMercator, toWgs84, point } from "@turf/turf";
-import { SelectMode } from "./select-mode";
-import { isolatedEditor } from "../editors";
+import { SelectMode } from "./select";
 
 interface EditModeOptions {
   selectedId?: string | number;
@@ -177,8 +176,12 @@ export class EditMode implements DrawMode {
     let newHandles: Position[];
     const context: EditContext = { handleIndex, handles, delta: [dx, dy] };
 
-    if (mode?.edit) newHandles = mode.edit(context);
-    else newHandles = isolatedEditor(context);
+    if (mode?.edit) {
+      newHandles = mode.edit(context);
+    } else {
+      // Default isolated editor behavior
+      newHandles = handles.map((coord, i) => (i === handleIndex ? [coord[0] + dx, coord[1] + dy] : coord));
+    }
     this.regenerateAndUpdate(draw, feature, newHandles);
   }
 

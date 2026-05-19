@@ -2,7 +2,7 @@ import type { Position } from "geojson";
 import { DrawController } from "../core";
 import type { DrawInfo, DrawMode } from "../core";
 import { getGroupIds, getPrimaryFeature } from "../core/group-utils";
-import { EditMode } from "./edit-mode";
+import { EditMode } from "./edit";
 
 interface SelectModeOptions {
   selectedId?: string | number;
