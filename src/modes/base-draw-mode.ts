@@ -17,7 +17,7 @@ export abstract class BaseDrawMode implements DrawMode {
 
   protected config: BaseDrawModeConfig;
   protected coordinates: Position[] = [];
-  protected featureId?: string | number;
+  protected featureIds: (string | number)[] = [];
   public properties?: Record<string, unknown>;
 
   constructor(options: BaseDrawModeOptions = {}) {
@@ -67,7 +67,7 @@ export abstract class BaseDrawMode implements DrawMode {
   }
 
   onMouseMove(info: DrawInfo, draw: DrawController) {
-    if (!this.featureId || this.coordinates.length === 0) return;
+    if (this.featureIds.length === 0 || this.coordinates.length === 0) return;
     const previewCoords = [...this.coordinates, [info.lng, info.lat]];
     this.updateShape(draw, previewCoords, { preview: true });
   }
@@ -75,45 +75,60 @@ export abstract class BaseDrawMode implements DrawMode {
   abstract generate(
     draw: DrawController,
     points: Position[],
-    id?: string | number,
+    id?: string | number | (string | number)[],
     props?: Record<string, unknown>,
-  ): Feature | undefined;
+  ): Feature | Feature[] | undefined;
 
   edit(context: EditContext): Position[] {
     return isolatedEditor(context);
   }
 
-  public createFeature(draw: DrawController, points: Position[], props?: Record<string, unknown>): Feature | undefined {
+  public createFeature(draw: DrawController, points: Position[], props?: Record<string, unknown>): Feature | Feature[] | undefined {
     const mergedProps = { ...this.properties, ...props };
-    const feature = this.generate(draw, points, undefined, mergedProps);
-    if (!feature) return undefined;
-    draw.state.addFeature(feature);
-    return feature;
+    const result = this.generate(draw, points, undefined, mergedProps);
+    if (!result) return undefined;
+
+    const features = Array.isArray(result) ? result : [result];
+    draw.state.addFeatures(features);
+
+    return result;
   }
 
   protected createInitialFeature(draw: DrawController, coord: Position) {
     const initialCoords = this.config.pointCount === 1 ? [coord] : [coord, coord];
-    const feature = this.generate(draw, initialCoords, undefined, this.properties);
-    if (!feature) return;
+    const result = this.generate(draw, initialCoords, undefined, this.properties);
+    if (!result) return;
 
-    this.featureId = feature.id;
-    draw.state.addFeature(feature);
+    const features = Array.isArray(result) ? result : [result];
+    this.featureIds = features.map(f => f.id!).filter(id => id !== undefined);
+    draw.state.addFeatures(features);
 
-    if (this.featureId) this.updateHandles(draw);
+    if (this.featureIds.length > 0) this.updateHandles(draw);
   }
 
   protected updateShape(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
-    if (!this.featureId) return;
+    if (this.featureIds.length === 0) return;
     const mergedProps = { ...this.properties, ...props };
-    const feature = this.generate(draw, coords, this.featureId, mergedProps);
-    if (!feature) return;
-    draw.state.updateFeature(this.featureId, feature);
+
+    // Pass single ID for backward compatibility, or array for grouped features
+    const idArg = this.featureIds.length === 1 ? this.featureIds[0] : this.featureIds;
+    const result = this.generate(draw, coords, idArg, mergedProps);
+    if (!result) return;
+
+    const features = Array.isArray(result) ? result : [result];
+    features.forEach(feature => {
+      if (feature.id !== undefined) {
+        draw.state.updateFeature(feature.id, feature);
+      }
+    });
   }
 
   protected updateHandles(draw: DrawController) {
-    if (!this.featureId || this.coordinates.length === 0) return;
+    const primaryId = this.getPrimaryFeatureId(draw);
+    if (!primaryId || this.coordinates.length === 0) return;
 
-    draw.state.clearHandles(this.featureId);
+    // Clear handles for all features in the group to avoid overlapping handles
+    this.featureIds.forEach(id => draw.state.clearHandles(id));
 
     const { handleDisplay } = this.config;
     const coords = this.coordinates;
@@ -122,40 +137,49 @@ export abstract class BaseDrawMode implements DrawMode {
         return;
 
       case "first":
-        draw.state.createHandle(this.featureId, coords[0], 0);
+        draw.state.createHandle(primaryId, coords[0], 0);
         break;
 
       case "last":
-        draw.state.createHandle(this.featureId, coords[coords.length - 1], 0);
+        draw.state.createHandle(primaryId, coords[coords.length - 1], 0);
         break;
 
       case "first-last":
-        draw.state.createHandle(this.featureId, coords[0], 0);
+        draw.state.createHandle(primaryId, coords[0], 0);
         if (coords.length > 1) {
-          draw.state.createHandle(this.featureId, coords[coords.length - 1], 1);
+          draw.state.createHandle(primaryId, coords[coords.length - 1], 1);
         }
         break;
 
       case "all":
         coords.forEach((coord, i) => {
-          draw.state.createHandle(this.featureId!, coord, i);
+          draw.state.createHandle(primaryId!, coord, i);
         });
         break;
     }
   }
 
+  protected getPrimaryFeatureId(draw: DrawController): string | number | undefined {
+    // Find the primary feature (one with groupPrimary: true, or the first one)
+    for (const id of this.featureIds) {
+      const feature = draw.state.getFeature(id);
+      if (feature?.properties?.groupPrimary) return id;
+    }
+    return this.featureIds[0];
+  }
+
   protected finishShape(draw: DrawController) {
-    if (!this.featureId) return;
+    if (this.featureIds.length === 0) return;
     this.updateShape(draw, this.coordinates, { preview: false });
-    draw.state.clearHandles(this.featureId);
+    // Clear handles for all features in the group
+    this.featureIds.forEach(id => draw.state.clearHandles(id));
     this.reset(draw);
   }
 
   protected reset(draw: DrawController) {
-    if (this.featureId) {
-      draw.state.clearHandles(this.featureId);
-    }
+    // Clear handles for all features in the group
+    this.featureIds.forEach(id => draw.state.clearHandles(id));
     this.coordinates = [];
-    this.featureId = undefined;
+    this.featureIds = [];
   }
 }

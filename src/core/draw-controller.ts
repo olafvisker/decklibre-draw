@@ -120,7 +120,11 @@ export class DrawController {
     this._modes[name] = instance;
   }
 
-  public createFeature(modeName: string, points: Position[], props?: Record<string, unknown>): Feature | undefined {
+  public createFeature(
+    modeName: string,
+    points: Position[],
+    props?: Record<string, unknown>,
+  ): Feature | Feature[] | undefined {
     const mode = this.getMode(modeName);
     return mode?.createFeature?.(this, points, props);
   }
@@ -295,7 +299,8 @@ export class DrawController {
       },
     ];
     this._warmUpFeatureIds = tempFeatures.map((f) => f.id!.toString());
-    this._state.addFeatures(tempFeatures, { silent: true });
+    this._state.addFeatures(tempFeatures);
+    this._deck.redraw();
     requestAnimationFrame(() => {
       this._cleanupWarmup();
     });

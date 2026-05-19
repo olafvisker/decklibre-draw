@@ -30,11 +30,11 @@ export interface DrawMode {
   generate?(
     draw: DrawController,
     points: Position[],
-    id?: string | number,
+    id?: string | number | (string | number)[],
     props?: Record<string, unknown>,
-  ): Feature | undefined;
+  ): Feature | Feature[] | undefined;
 
-  createFeature?(draw: DrawController, points: Position[], props?: Record<string, unknown>): Feature | undefined;
+  createFeature?(draw: DrawController, points: Position[], props?: Record<string, unknown>): Feature | Feature[] | undefined;
 
   edit?(context: EditContext): Position[];
 }

@@ -276,9 +276,22 @@ export class DrawState {
     let changed = false;
     const updatedFeatures: Feature[] = [];
 
+    // Collect all groupIds from selected features
+    const selectedGroupIds = new Set<string | number>();
+    for (const id of this._selectedFeatureIds) {
+      const feature = this._featureMap.get(id) as ShapeFeature | undefined;
+      if (feature?.properties?.groupId) {
+        selectedGroupIds.add(feature.properties.groupId);
+      }
+    }
+
     for (const [id, feature] of this._featureMap.entries()) {
       const f = feature as ShapeFeature;
-      const selected = this._selectedFeatureIds.has(id);
+      // A feature is selected if its ID is selected OR its groupId matches a selected group
+      const isDirectlySelected = this._selectedFeatureIds.has(id);
+      const isInSelectedGroup = f.properties?.groupId && selectedGroupIds.has(f.properties.groupId);
+      const selected = isDirectlySelected || isInSelectedGroup;
+
       if (f.properties.selected !== selected) {
         const updated: ShapeFeature = {
           ...f,

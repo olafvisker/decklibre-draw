@@ -1,6 +1,7 @@
 import type { Position } from "geojson";
 import { DrawController } from "../core";
 import type { DrawInfo, DrawMode } from "../core";
+import { getGroupIds, getPrimaryFeature } from "../core/group-utils";
 import { EditMode } from "./edit-mode";
 
 interface SelectModeOptions {
@@ -28,7 +29,12 @@ export class SelectMode implements DrawMode {
 
   onEnter(draw: DrawController) {
     draw.setCursor({ default: "default", hover: "pointer" });
-    if (this.startSelectedId) draw.state.setSelected(this.startSelectedId);
+    if (this.startSelectedId) {
+      // Resolve to primary feature for grouped features
+      const primaryFeature = getPrimaryFeature(draw.state, this.startSelectedId);
+      const idToSelect = primaryFeature?.id ?? this.startSelectedId;
+      draw.state.setSelected(idToSelect);
+    }
   }
 
   onExit(draw: DrawController) {
@@ -47,17 +53,26 @@ export class SelectMode implements DrawMode {
       return;
     }
 
-    if (!this.preventEdit && draw.state.isSelected(f.id)) {
-      draw.changeMode<EditMode>("edit", { startSelectedId: f.id });
+    // For grouped features, always use the primary feature ID
+    const primaryFeature = getPrimaryFeature(draw.state, f.id);
+    const idToSelect = primaryFeature?.id ?? f.id;
+
+    if (!this.preventEdit && draw.state.isSelected(idToSelect)) {
+      draw.changeMode<EditMode>("edit", { startSelectedId: idToSelect });
     } else {
-      draw.state.setSelected(f.id);
+      draw.state.setSelected(idToSelect);
     }
   }
 
   onMouseDown(info: DrawInfo, draw: DrawController) {
-    const featureId = info.feature?.id;
-    if (!featureId) return;
+    const feature = info.feature;
+    if (!feature?.id) return;
 
+    // For grouped features, use the primary feature ID for dragging
+    const primaryFeature = getPrimaryFeature(draw.state, feature.id);
+    const featureId = primaryFeature?.id ?? feature.id;
+
+    // Allow drag if dragWithoutSelect is enabled OR if primary feature is selected
     if (this.dragWithoutSelect || draw.state.isSelected(featureId)) {
       this._dragging = true;
       this._dragFeatureId = featureId;
@@ -72,16 +87,29 @@ export class SelectMode implements DrawMode {
     const dx = info.lng - this._dragStartCoord[0];
     const dy = info.lat - this._dragStartCoord[1];
 
-    const feature = draw.state.getFeature(this._dragFeatureId);
-    if (!feature || !feature.id || !feature.properties?.mode) return;
+    // Get all features in the group
+    const groupIds = getGroupIds(draw.state, this._dragFeatureId);
+    const primaryFeature = getPrimaryFeature(draw.state, this._dragFeatureId);
 
-    const handles: Position[] = feature.properties.handles || [];
+    if (!primaryFeature || !primaryFeature.id || !primaryFeature.properties?.mode) return;
 
-    const mode = draw.getMode(feature.properties.mode);
+    const handles: Position[] = primaryFeature.properties.handles || [];
+    const mode = draw.getMode(primaryFeature.properties.mode);
+
     if (mode) {
       const movedHandles = handles.map(([x, y]) => [x + dx, y + dy]);
-      const updated = mode.generate?.(draw, movedHandles, feature.id, { ...feature.properties, handles: movedHandles });
-      if (updated) draw.state.updateFeature(feature.id, updated);
+      // Pass single ID for backward compatibility, or array for grouped features
+      const idArg = groupIds.length === 1 ? groupIds[0] : groupIds;
+      const result = mode.generate?.(draw, movedHandles, idArg, { ...primaryFeature.properties, handles: movedHandles });
+
+      if (result) {
+        const features = Array.isArray(result) ? result : [result];
+        features.forEach(feature => {
+          if (feature.id !== undefined) {
+            draw.state.updateFeature(feature.id, feature);
+          }
+        });
+      }
     }
 
     this._dragStartCoord = [info.lng, info.lat];

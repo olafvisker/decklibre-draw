@@ -9,9 +9,10 @@ import { Map, NavigationControl, useControl } from "react-map-gl/maplibre";
 import { Deck, GeoJsonLayer, type LayersList } from "deck.gl";
 import { MapboxOverlay, type MapboxOverlayProps } from "@deck.gl/mapbox";
 
-import { DrawController } from "../../src/core";
+import { DrawController, DEFAULT_MODES } from "../../src/core";
 import type { EditMode, SelectMode } from "../../src/modes";
 import type { Feature } from "geojson";
+import { CircleWithBoxMode } from "./circle-with-box-mode";
 
 import {
   GithubIcon,
@@ -20,6 +21,7 @@ import {
   MousePointer2Icon,
   PentagonIcon,
   RadiusIcon,
+  RectangleCircleIcon,
   Trash2Icon,
   VectorSquare,
   WaypointsIcon,
@@ -49,6 +51,11 @@ const modes: { label: string; icon: React.ReactNode; mode: string }[] = [
   { label: "Draw Polygon", icon: <PentagonIcon size={16} />, mode: "polygon" },
   { label: "Draw Circle", icon: <RadiusIcon size={16} />, mode: "circle" },
   { label: "Draw Rectangle", icon: <VectorSquare size={16} />, mode: "rectangle" },
+  {
+    label: "Circle + Box",
+    icon: <RectangleCircleIcon size={16} />,
+    mode: "circle-with-box",
+  },
 ];
 
 function Toolbar({ draw }: { draw: DrawController | null }) {
@@ -134,7 +141,13 @@ function Root() {
   const drawRef = useRef<DrawController | null>(null);
 
   const handleLoad = (deck: Deck, map: maplibregl.Map) => {
-    const draw = new DrawController(deck, map, { layerIds: ["geojson-layer"] });
+    const draw = new DrawController(deck, map, {
+      layerIds: ["geojson-layer"],
+      modes: {
+        ...DEFAULT_MODES,
+        "circle-with-box": new CircleWithBoxMode(),
+      },
+    });
     draw.changeModeOptions<SelectMode>("select", { dragWithoutSelect: true });
     draw.changeModeOptions<EditMode>("edit", { dragWithoutSelect: true });
 
@@ -167,6 +180,7 @@ function Root() {
       getLineColor: (f: Feature) => {
         const { handle, selected, preview } = f.properties || {};
         if (f.geometry.type === "Point" || handle) return [255, 255, 255, 255];
+
         const active = selected || preview;
         return active ? [251, 176, 59, 255] : [59, 178, 208, 255];
       },

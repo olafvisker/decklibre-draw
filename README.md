@@ -101,6 +101,63 @@ mode?.createFeature(controller, [[lng, lat]], { type: 'marker' });
 
 Both methods use the mode's `generate()` function and add the feature to state, making it immediately editable.
 
+### Feature Properties
+
+Features created by decklibre-draw include standard properties for editing and selection. Understanding these properties helps when styling features or creating custom modes.
+
+#### Required Properties (for editable features)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `mode` | `string` | The name of the mode that created this feature. Used to find the correct generator when regenerating during edits. |
+| `handles` | `Position[]` | The editable control points for this feature. These are the coordinates that can be moved to reshape the feature. |
+
+#### Optional Standard Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `selected` | `boolean` | Whether the feature is currently selected. Automatically managed by DrawState. |
+| `preview` | `boolean` | Whether the feature is a preview (temporary during drawing). |
+| `insertable` | `boolean` | Whether midpoint handles can be inserted to add vertices. Default: `true` for lines/polygons, `false` for circles/rectangles. |
+
+#### Handle-specific Properties
+
+Features representing edit handles have special properties:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `handle` | `boolean` | Marks this as a vertex handle that can be dragged. |
+| `midpoint` | `boolean` | Marks this as a midpoint handle (between vertices) for inserting new points. |
+| `featureId` | `string \| number` | The ID of the parent feature this handle belongs to. |
+| `index` | `number` | The index of this handle in the handles array. |
+
+#### Grouped Features Properties
+
+For features that should move/edit together:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `groupId` | `string \| number` | **Optional.** Links multiple features together. All features with the same `groupId` are selected/moved/edited as one. |
+| `groupPrimary` | `boolean` | **Optional.** Marks the primary feature in a group. This feature's handles control the entire group. Only one feature per group should have this set to `true`. |
+
+**Example feature with standard properties:**
+
+```ts
+{
+  type: "Feature",
+  id: "unique-id",
+  geometry: { type: "Polygon", coordinates: [...] },
+  properties: {
+    mode: "polygon",           // Required: mode that created it
+    handles: [[...], [...]],   // Required: editable points
+    selected: false,           // Managed by state
+    preview: false,            // Managed during drawing
+    insertable: true,          // Optional: allow vertex insertion
+    customProp: "value"        // Your custom properties
+  }
+}
+```
+
 ### Events
 
 | Event            | Payload                         | Description                  |
@@ -166,9 +223,9 @@ export interface DrawMode {
   generate?(
     draw: DrawController,
     points: Position[],
-    id?: string | number,
+    id?: string | number | (string | number)[],
     props?: Record<string, unknown>
-  ): Feature | undefined;
+  ): Feature | Feature[] | undefined;
 
   edit?(context: EditContext): Position[];
 }
@@ -207,3 +264,90 @@ export class DrawTriangleMode extends BaseDrawMode {
   }
 }
 ```
+
+### Grouped Features
+
+The `generate()` method can return multiple features that behave as a single unit when selecting, moving, and editing. This is useful for creating complex geometries with different visual components.
+
+**Key concepts:**
+- Return an array of features from `generate()`
+- Add a `groupId` to link features together
+- Mark one feature as `groupPrimary: true` (defaults to first feature)
+- All features in the group move/edit together
+- Only the primary feature shows edit handles
+
+```ts
+export class CircleWithBoxMode extends BaseDrawMode {
+  name = "circle-with-box";
+
+  constructor() {
+    super({ pointCount: 2, handleDisplay: "first" });
+  }
+
+  generate(
+    _draw: DrawController,
+    points: Position[],
+    id?: string | number | (string | number)[],
+    props?: Record<string, unknown>,
+  ): Feature[] | undefined {
+    if (points.length < 2) return;
+
+    // Reuse existing groupId if updating, otherwise create new one
+    const groupId = (props?.groupId as string | number) ?? uuid();
+    const ids = Array.isArray(id) ? id : [uuid(), uuid()];
+
+    // Generate the circle using the same logic as DrawCircleMode
+    const circleFeature = generateCircle(points, { steps: 64 });
+
+    // Calculate bounding box
+    const center = points[0];
+    const radius = distance(point(center), point(points[1]), { units: "meters" });
+
+    // Create box corners (square bounding box)
+    const boxRadius = radius * Math.SQRT2; // Diagonal distance to contain circle
+    const topLeft = destination(center, boxRadius, -135, { units: "meters" }).geometry.coordinates;
+    const topRight = destination(center, boxRadius, -45, { units: "meters" }).geometry.coordinates;
+    const bottomRight = destination(center, boxRadius, 45, { units: "meters" }).geometry.coordinates;
+    const bottomLeft = destination(center, boxRadius, 135, { units: "meters" }).geometry.coordinates;
+
+    // Circle (primary feature with handles)
+    const circle: Feature<Polygon> = {
+      type: "Feature",
+      id: ids[0],
+      geometry: circleFeature.geometry,
+      properties: {
+        ...props,
+        mode: this.name,
+        handles: points,
+        groupId,
+        groupPrimary: true, // This controls the group
+        insertable: false,
+      },
+    };
+
+    // Bounding box
+    const box: Feature<Polygon> = {
+      type: "Feature",
+      id: ids[1],
+      geometry: {
+        type: "Polygon",
+        coordinates: [[topLeft, topRight, bottomRight, bottomLeft, topLeft]],
+      },
+      properties: {
+        ...props,
+        mode: this.name,
+        groupId,
+        isBox: true, // Custom property for styling
+        insertable: false,
+      },
+    };
+
+    return [circle, box];
+  }
+```
+
+**How it works:**
+- When you click any feature in the group, the whole group is selected
+- Dragging moves all features together based on the primary feature's handles
+- Editing handles (in edit mode) updates all features in the group
+- Each feature can have its own properties (colors, styles, etc.)
