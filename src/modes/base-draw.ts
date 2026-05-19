@@ -4,7 +4,7 @@ import type { Feature, Position } from "geojson";
 
 export interface BaseDrawModeConfig {
   pointCount?: number;
-  handleDisplay?: "none" | "first" | "last" | "first-last" | "all";
+  controlPointDisplay?: "none" | "first" | "last" | "first-last" | "all";
 }
 
 export interface BaseDrawModeOptions extends BaseDrawModeConfig {
@@ -40,7 +40,7 @@ export abstract class BaseDrawMode implements DrawMode {
   onClick(info: DrawInfo, draw: DrawController) {
     const coord: Position = [info.lng, info.lat];
 
-    if (info.feature?.properties?.handle) {
+    if (info.feature?.properties?.controlPoint) {
       this.finishShape(draw);
       return;
     }
@@ -58,7 +58,7 @@ export abstract class BaseDrawMode implements DrawMode {
     }
 
     this.updateShape(draw, this.coordinates, { preview: true });
-    this.updateHandles(draw);
+    this.updateControlPoints(draw);
   }
 
   onDoubleClick(_info: DrawInfo, draw: DrawController) {
@@ -78,9 +78,9 @@ export abstract class BaseDrawMode implements DrawMode {
     props?: Record<string, unknown>,
   ): Feature | Feature[] | undefined;
 
-  edit({ handles, handleIndex, delta }: EditContext): Position[] {
+  edit({ controlPoints, controlPointIndex, delta }: EditContext): Position[] {
     const [dx, dy] = delta;
-    return handles.map((coord, i) => (i === handleIndex ? [coord[0] + dx, coord[1] + dy] : coord));
+    return controlPoints.map((coord, i) => (i === controlPointIndex ? [coord[0] + dx, coord[1] + dy] : coord));
   }
 
   public createFeature(draw: DrawController, points: Position[], props?: Record<string, unknown>): Feature | Feature[] | undefined {
@@ -103,7 +103,13 @@ export abstract class BaseDrawMode implements DrawMode {
     this.featureIds = features.map(f => f.id!).filter(id => id !== undefined);
     draw.state.addFeatures(features);
 
-    if (this.featureIds.length > 0) this.updateHandles(draw);
+    // Store control points in state
+    const primaryId = this.getPrimaryFeatureId(draw);
+    if (primaryId) {
+      draw.state.setControlPoints(primaryId, initialCoords);
+    }
+
+    if (this.featureIds.length > 0) this.updateControlPoints(draw);
   }
 
   protected updateShape(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
@@ -121,39 +127,46 @@ export abstract class BaseDrawMode implements DrawMode {
         draw.state.updateFeature(feature.id, feature);
       }
     });
+
+    // Update control points in state
+    const primaryId = this.getPrimaryFeatureId(draw);
+    if (primaryId) {
+      draw.state.setControlPoints(primaryId, coords);
+    }
   }
 
-  protected updateHandles(draw: DrawController) {
+  protected updateControlPoints(draw: DrawController) {
     const primaryId = this.getPrimaryFeatureId(draw);
     if (!primaryId || this.coordinates.length === 0) return;
 
-    // Clear handles for all features in the group to avoid overlapping handles
-    this.featureIds.forEach(id => draw.state.clearHandles(id));
+    // Clear control points for all features in the group to avoid overlapping
+    this.featureIds.forEach(id => draw.state.clearControlPoints(id));
 
-    const { handleDisplay } = this.config;
+    const { controlPointDisplay = "all" } = this.config;
     const coords = this.coordinates;
-    switch (handleDisplay) {
+    switch (controlPointDisplay) {
       case "none":
         return;
 
       case "first":
-        draw.state.createHandle(primaryId, coords[0], 0);
+        draw.state.createControlPoint(primaryId, coords[0], 0);
         break;
 
       case "last":
-        draw.state.createHandle(primaryId, coords[coords.length - 1], 0);
+        draw.state.createControlPoint(primaryId, coords[coords.length - 1], 0);
         break;
 
       case "first-last":
-        draw.state.createHandle(primaryId, coords[0], 0);
+        draw.state.createControlPoint(primaryId, coords[0], 0);
         if (coords.length > 1) {
-          draw.state.createHandle(primaryId, coords[coords.length - 1], 1);
+          draw.state.createControlPoint(primaryId, coords[coords.length - 1], 1);
         }
         break;
 
       case "all":
+      default:
         coords.forEach((coord, i) => {
-          draw.state.createHandle(primaryId!, coord, i);
+          draw.state.createControlPoint(primaryId!, coord, i);
         });
         break;
     }
@@ -171,14 +184,14 @@ export abstract class BaseDrawMode implements DrawMode {
   protected finishShape(draw: DrawController) {
     if (this.featureIds.length === 0) return;
     this.updateShape(draw, this.coordinates, { preview: false });
-    // Clear handles for all features in the group
-    this.featureIds.forEach(id => draw.state.clearHandles(id));
+    // Clear control points for all features in the group
+    this.featureIds.forEach(id => draw.state.clearControlPoints(id));
     this.reset(draw);
   }
 
   protected reset(draw: DrawController) {
-    // Clear handles for all features in the group
-    this.featureIds.forEach(id => draw.state.clearHandles(id));
+    // Clear control points for all features in the group
+    this.featureIds.forEach(id => draw.state.clearControlPoints(id));
     this.coordinates = [];
     this.featureIds = [];
   }

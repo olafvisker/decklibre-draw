@@ -10,8 +10,8 @@ export interface DrawInfo {
 }
 
 export interface EditContext {
-  handleIndex: number;
-  handles: Position[];
+  controlPointIndex: number;
+  controlPoints: Position[];
   delta: [number, number];
 }
 

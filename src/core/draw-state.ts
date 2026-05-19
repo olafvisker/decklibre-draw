@@ -4,23 +4,22 @@ import mitt from "mitt";
 
 export type ShapeFeatureProperties = GeoJsonProperties & {
   mode: string;
-  handles: Position[];
   preview?: boolean;
   selected?: boolean;
 };
 
-export type HandleFeatureProperties = GeoJsonProperties & {
-  handle?: boolean;
+export type ControlPointFeatureProperties = GeoJsonProperties & {
+  controlPoint?: boolean;
   midpoint?: boolean;
   featureId: string | number;
   index: number;
 };
 
-export type DrawFeatureProperties = Partial<ShapeFeatureProperties & HandleFeatureProperties> | null;
+export type DrawFeatureProperties = Partial<ShapeFeatureProperties & ControlPointFeatureProperties> | null;
 
 export type DrawFeature = Feature<Geometry, DrawFeatureProperties>;
 export type ShapeFeature = Feature<Geometry, ShapeFeatureProperties>;
-export type HandleFeature = Feature<Point, HandleFeatureProperties>;
+export type ControlPointFeature = Feature<Point, ControlPointFeatureProperties>;
 
 export type DrawStateEvents = {
   "feature:add": { features: DrawFeature[] };
@@ -42,7 +41,8 @@ export class DrawState {
   private _emitter = mitt<DrawStateEvents>();
 
   private _featureMap: Map<string | number, DrawFeature> = new Map();
-  private _handleMap: Map<string | number, HandleFeature[]> = new Map();
+  private _controlPointsMap: Map<string | number, Position[]> = new Map();
+  private _controlPointFeaturesMap: Map<string | number, ControlPointFeature[]> = new Map();
   private _selectedFeatureIds = new Set<string | number>();
 
   // Cache the features array - only recreate when map changes
@@ -77,40 +77,23 @@ export class DrawState {
   private _normalizeFeature(f: Feature): DrawFeature {
     const feature = { ...f, id: f.id ?? uuid() } as DrawFeature;
 
-    // Check if this is a handle feature (has handle-specific properties)
-    const isHandle =
+    // Check if this is a control point feature (has control point-specific properties)
+    const isControlPoint =
       feature.properties &&
-      ("handle" in feature.properties || "midpoint" in feature.properties || "featureId" in feature.properties);
+      ("controlPoint" in feature.properties || "midpoint" in feature.properties || "featureId" in feature.properties);
 
-    // If it's not a handle and missing shape properties, add defaults
-    if (!isHandle) {
+    // If it's not a control point and missing shape properties, add defaults
+    if (!isControlPoint) {
       const props = (feature.properties || {}) as Partial<ShapeFeatureProperties>;
-      if (!props.mode || !props.handles) {
-        const handles = this._extractHandles(feature.geometry);
+      if (!props.mode) {
         feature.properties = {
           ...props,
           mode: props.mode ?? "simple",
-          handles: props.handles ?? handles,
         };
       }
     }
 
     return feature;
-  }
-
-  private _extractHandles(geometry: Geometry): Position[] {
-    if (!geometry) return [];
-
-    switch (geometry.type) {
-      case "Point":
-        return [geometry.coordinates];
-      case "LineString":
-        return geometry.coordinates;
-      case "Polygon":
-        return geometry.coordinates[0] || [];
-      default:
-        return [];
-    }
   }
 
   public addFeature(feature: Feature, options?: DrawStateMethodOptions) {
@@ -144,7 +127,7 @@ export class DrawState {
       if (this._selectedFeatureIds.delete(id)) {
         selectionChanged = true;
       }
-      this.clearHandles(id, options);
+      this.clearControlPoints(id, options);
     }
     this._invalidateCache();
     if (!options?.silent) {
@@ -156,11 +139,12 @@ export class DrawState {
 
   public removeAllFeature(options?: DrawStateMethodOptions) {
     const ids = Array.from(this._featureMap.keys());
-    for (const featureId of this._handleMap.keys()) {
-      this.clearHandles(featureId, options);
+    for (const featureId of this._controlPointFeaturesMap.keys()) {
+      this.clearControlPoints(featureId, options);
     }
     const hadSelection = this._selectedFeatureIds.size > 0;
     this._featureMap.clear();
+    this._controlPointsMap.clear();
     this._selectedFeatureIds.clear();
     this._invalidateCache();
 
@@ -189,59 +173,102 @@ export class DrawState {
     }
   }
 
-  // --- Handle Management ---
-  public createHandle(
+  // --- Control Points Management ---
+  private _extractControlPointsFromGeometry(geometry: Geometry): Position[] {
+    if (!geometry) return [];
+
+    switch (geometry.type) {
+      case "Point":
+        return [geometry.coordinates];
+      case "LineString":
+        return geometry.coordinates;
+      case "Polygon":
+        // Return the outer ring without the closing point
+        const ring = geometry.coordinates[0] || [];
+        return ring.length > 0 ? ring.slice(0, -1) : [];
+      default:
+        return [];
+    }
+  }
+
+  public getControlPoints(featureId: string | number): Position[] | undefined {
+    // If control points are already stored, return them
+    const stored = this._controlPointsMap.get(featureId);
+    if (stored) return stored;
+
+    // Otherwise, extract from geometry and store
+    const feature = this._featureMap.get(featureId);
+    if (feature && feature.geometry) {
+      const extracted = this._extractControlPointsFromGeometry(feature.geometry);
+      if (extracted.length > 0) {
+        this._controlPointsMap.set(featureId, extracted);
+        return extracted;
+      }
+    }
+
+    return undefined;
+  }
+
+  public setControlPoints(featureId: string | number, points: Position[]) {
+    this._controlPointsMap.set(featureId, points);
+  }
+
+  public clearControlPointsData(featureId: string | number) {
+    this._controlPointsMap.delete(featureId);
+  }
+
+  public createControlPoint(
     featureId: string | number,
     coord: Position,
     index: number,
     asMidpoint: boolean = false,
-  ): HandleFeature {
-    const handle: HandleFeature = {
+  ): ControlPointFeature {
+    const controlPoint: ControlPointFeature = {
       id: uuid(),
       type: "Feature",
       geometry: { type: "Point", coordinates: coord },
-      properties: { handle: !asMidpoint, midpoint: asMidpoint, featureId, index },
+      properties: { controlPoint: !asMidpoint, midpoint: asMidpoint, featureId, index },
     };
 
-    const existing = this._handleMap.get(featureId) ?? [];
-    this._handleMap.set(featureId, [...existing, handle]);
-    this.addFeature(handle);
-    return handle;
+    const existing = this._controlPointFeaturesMap.get(featureId) ?? [];
+    this._controlPointFeaturesMap.set(featureId, [...existing, controlPoint]);
+    this.addFeature(controlPoint);
+    return controlPoint;
   }
 
-  public clearHandles(featureId: string | number, options?: DrawStateMethodOptions) {
-    const handle = this._handleMap.get(featureId);
-    if (handle) {
+  public clearControlPoints(featureId: string | number, options?: DrawStateMethodOptions) {
+    const controlPoints = this._controlPointFeaturesMap.get(featureId);
+    if (controlPoints) {
       this.removeFeatures(
-        handle.map((h) => h.id!),
+        controlPoints.map((cp) => cp.id!),
         options,
       );
-      this._handleMap.delete(featureId);
+      this._controlPointFeaturesMap.delete(featureId);
     }
   }
 
-  public getHandles(featureId: string | number) {
-    return this._handleMap.get(featureId) ?? [];
+  public getControlPointFeatures(featureId: string | number) {
+    return this._controlPointFeaturesMap.get(featureId) ?? [];
   }
 
-  public updateHandle(handleId: string | number, coord: Position, options?: DrawStateMethodOptions) {
-    const handle = this._featureMap.get(handleId) as HandleFeature;
-    if (!handle) return;
+  public updateControlPoint(controlPointId: string | number, coord: Position, options?: DrawStateMethodOptions) {
+    const controlPoint = this._featureMap.get(controlPointId) as ControlPointFeature;
+    if (!controlPoint) return;
 
-    const updated: HandleFeature = {
-      ...handle,
+    const updated: ControlPointFeature = {
+      ...controlPoint,
       geometry: { type: "Point", coordinates: coord },
     };
 
-    this._featureMap.set(handleId, updated);
+    this._featureMap.set(controlPointId, updated);
 
-    // Update in handle map
-    const featureId = handle.properties.featureId;
-    const handles = this._handleMap.get(featureId);
-    if (handles) {
-      const index = handles.findIndex((h) => h.id === handleId);
+    // Update in control point map
+    const featureId = controlPoint.properties.featureId;
+    const controlPoints = this._controlPointFeaturesMap.get(featureId);
+    if (controlPoints) {
+      const index = controlPoints.findIndex((cp) => cp.id === controlPointId);
       if (index !== -1) {
-        handles[index] = updated;
+        controlPoints[index] = updated;
       }
     }
 

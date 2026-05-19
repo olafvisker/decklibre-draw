@@ -1,4 +1,4 @@
-import type { DrawInfo, HandleFeatureProperties, EditContext, HandleFeature } from "../core";
+import type { DrawInfo, ControlPointFeatureProperties, EditContext, ControlPointFeature } from "../core";
 import type { DrawMode } from "../core";
 import { DrawController } from "../core";
 import { getGroupIds, getPrimaryFeature } from "../core/group-utils";
@@ -20,10 +20,10 @@ export class EditMode implements DrawMode {
   public instantEdit = false;
 
   private _dragging = false;
-  private _dragType: "feature" | "handle" | null = null;
+  private _dragType: "feature" | "controlPoint" | null = null;
   private _dragStartCoord?: Position;
   private _dragFeatureId?: string | number;
-  private _dragHandleIndex?: number;
+  private _dragControlPointIndex?: number;
 
   constructor({ selectedId, dragWithoutSelect, instantEdit }: EditModeOptions = {}) {
     this.startSelectedId = selectedId;
@@ -39,7 +39,7 @@ export class EditMode implements DrawMode {
       const idToSelect = primaryFeature?.id ?? this.startSelectedId;
       draw.state.setSelected(idToSelect);
     }
-    this.createHandles(draw);
+    this.createControlPoints(draw);
   }
 
   onExit(draw: DrawController) {
@@ -54,14 +54,14 @@ export class EditMode implements DrawMode {
     const f = info.feature;
     if (!f || !f.id) return;
 
-    const { handle, midpoint, insertIndex } = f.properties || {};
-    if (handle) return;
+    const { controlPoint, midpoint, insertIndex } = f.properties || {};
+    if (controlPoint) return;
 
     if (midpoint) {
       const selected = this.getSelectedFeature(draw);
       if (!selected) return;
       this.insertVertex(draw, insertIndex, [info.lng, info.lat]);
-      this.createHandles(draw);
+      this.createControlPoints(draw);
       return;
     }
 
@@ -71,7 +71,7 @@ export class EditMode implements DrawMode {
 
     if (this.instantEdit) {
       draw.state.setSelected(primaryId);
-      this.createHandles(draw);
+      this.createControlPoints(draw);
     } else if (!draw.state.isSelected(primaryId)) {
       draw.changeMode<SelectMode>("select", { startSelectedId: primaryId });
     }
@@ -81,14 +81,14 @@ export class EditMode implements DrawMode {
     const f = info.feature;
     if (!f || !f.id) return draw.setDoubleClickZoom(true);
 
-    const { handle, midpoint, index } = (f.properties as HandleFeatureProperties) || {};
+    const { controlPoint, midpoint, index } = (f.properties as ControlPointFeatureProperties) || {};
 
     // Resolve to primary feature for grouped features
     const primaryFeature = getPrimaryFeature(draw.state, f.id);
     const primaryId = primaryFeature?.id ?? f.id;
 
     if (this.dragWithoutSelect || draw.state.isSelected(primaryId)) {
-      if (!handle && !midpoint) {
+      if (!controlPoint && !midpoint) {
         this._dragging = true;
         this._dragFeatureId = primaryId;
         this._dragType = "feature";
@@ -103,12 +103,12 @@ export class EditMode implements DrawMode {
       const selected = this.getSelectedFeature(draw);
       if (!selected) return;
       this.insertVertex(draw, index, [info.lng, info.lat]);
-      this.startDrag("handle", info, index + 1, draw);
-      this.createHandles(draw);
+      this.startDrag("controlPoint", info, index + 1, draw);
+      this.createControlPoints(draw);
       return;
     }
 
-    if (handle) return this.startDrag("handle", info, index, draw);
+    if (controlPoint) return this.startDrag("controlPoint", info, index, draw);
     if (draw.state.isSelected(primaryId)) this.startDrag("feature", info, undefined, draw);
   }
 
@@ -121,7 +121,7 @@ export class EditMode implements DrawMode {
       this.translateFeature(feature, dx, dy, draw);
 
       this._dragStartCoord = [info.lng, info.lat];
-      this.updateHandles(draw);
+      this.updateControlPoints(draw);
       return;
     }
 
@@ -131,9 +131,9 @@ export class EditMode implements DrawMode {
     const [dx, dy] = [info.lng - this._dragStartCoord[0], info.lat - this._dragStartCoord[1]];
     this._dragStartCoord = [info.lng, info.lat];
 
-    if (this._dragType === "handle" && typeof this._dragHandleIndex === "number") {
-      this.editHandle(selected, this._dragHandleIndex, dx, dy, draw);
-      this.updateHandles(draw);
+    if (this._dragType === "controlPoint" && typeof this._dragControlPointIndex === "number") {
+      this.editControlPoint(selected, this._dragControlPointIndex, dx, dy, draw);
+      this.updateControlPoints(draw);
     }
   }
 
@@ -142,7 +142,7 @@ export class EditMode implements DrawMode {
     this._dragFeatureId = undefined;
     draw.setPanning(true);
 
-    if (!info.feature || (!info.feature.properties?.handle && !info.feature.properties?.midpoint)) {
+    if (!info.feature || (!info.feature.properties?.controlPoint && !info.feature.properties?.midpoint)) {
       draw.setDoubleClickZoom(true);
     }
   }
@@ -151,79 +151,81 @@ export class EditMode implements DrawMode {
     this._dragging = false;
     this._dragType = null;
     this._dragStartCoord = undefined;
-    this._dragHandleIndex = undefined;
+    this._dragControlPointIndex = undefined;
   }
 
-  private startDrag(type: "feature" | "handle", info: DrawInfo, handleIndex: number | undefined, draw: DrawController) {
+  private startDrag(type: "feature" | "controlPoint", info: DrawInfo, controlPointIndex: number | undefined, draw: DrawController) {
     this._dragging = true;
     this._dragType = type;
     this._dragStartCoord = [info.lng, info.lat];
-    this._dragHandleIndex = handleIndex;
+    this._dragControlPointIndex = controlPointIndex;
     draw.setPanning(false);
     draw.setDoubleClickZoom(false);
   }
 
   private translateFeature(feature: Feature, dx: number, dy: number, draw: DrawController): void {
-    const handles: Position[] = feature.properties?.handles || [];
-    const moved = handles.map(([x, y]) => [x + dx, y + dy]);
+    if (!feature.id) return;
+    const controlPoints = draw.state.getControlPoints(feature.id) || [];
+    const moved = controlPoints.map(([x, y]) => [x + dx, y + dy]);
     this.regenerateAndUpdate(draw, feature, moved);
   }
 
-  private editHandle(feature: Feature, handleIndex: number, dx: number, dy: number, draw: DrawController): void {
-    const handles: Position[] = feature.properties?.handles || [];
+  private editControlPoint(feature: Feature, controlPointIndex: number, dx: number, dy: number, draw: DrawController): void {
+    if (!feature.id) return;
+    const controlPoints = draw.state.getControlPoints(feature.id) || [];
     const mode = draw.getMode(feature.properties?.mode);
 
-    let newHandles: Position[];
-    const context: EditContext = { handleIndex, handles, delta: [dx, dy] };
+    let newControlPoints: Position[];
+    const context: EditContext = { controlPointIndex, controlPoints, delta: [dx, dy] };
 
     if (mode?.edit) {
-      newHandles = mode.edit(context);
+      newControlPoints = mode.edit(context);
     } else {
       // Default isolated editor behavior
-      newHandles = handles.map((coord, i) => (i === handleIndex ? [coord[0] + dx, coord[1] + dy] : coord));
+      newControlPoints = controlPoints.map((coord, i) => (i === controlPointIndex ? [coord[0] + dx, coord[1] + dy] : coord));
     }
-    this.regenerateAndUpdate(draw, feature, newHandles);
+    this.regenerateAndUpdate(draw, feature, newControlPoints);
   }
 
   private insertVertex(draw: DrawController, index: number, coord: Position) {
     const selected = this.getSelectedFeature(draw);
     if (!selected?.id) return;
 
-    const handles = selected.properties?.handles || [];
-    const updatedHandles = [...handles];
-    updatedHandles.splice(index + 1, 0, coord);
+    const controlPoints = draw.state.getControlPoints(selected.id) || [];
+    const updatedControlPoints = [...controlPoints];
+    updatedControlPoints.splice(index + 1, 0, coord);
 
-    this.regenerateAndUpdate(draw, selected, updatedHandles);
+    this.regenerateAndUpdate(draw, selected, updatedControlPoints);
   }
 
-  private createHandles(draw: DrawController) {
+  private createControlPoints(draw: DrawController) {
     const selected = this.getSelectedFeature(draw);
     if (!selected?.id) return;
-    draw.state.clearHandles(selected.id);
+    draw.state.clearControlPoints(selected.id);
 
-    const coords: Position[] = selected.properties?.handles || [];
-    coords.map((c, i) => draw.state.createHandle(selected.id!, c, i));
+    const coords = draw.state.getControlPoints(selected.id) || [];
+    coords.forEach((c, i) => draw.state.createControlPoint(selected.id!, c, i));
 
     if (selected.properties?.insertable !== false) {
       this.makeMidpoints(coords, selected.geometry.type === "Polygon", draw);
     }
   }
 
-  private updateHandles(draw: DrawController) {
+  private updateControlPoints(draw: DrawController) {
     const selected = this.getSelectedFeature(draw);
     if (!selected?.id) return;
 
-    const coords: Position[] = selected.properties?.handles || [];
-    const existingHandles = draw.state.getHandles(selected.id);
+    const coords = draw.state.getControlPoints(selected.id) || [];
+    const existingControlPointFeatures = draw.state.getControlPointFeatures(selected.id);
 
-    // Separate handles and midpoints
-    const handles = existingHandles.filter((h) => h.properties.handle);
-    const midpoints = existingHandles.filter((h) => h.properties.midpoint);
+    // Separate control points and midpoints
+    const controlPointFeatures = existingControlPointFeatures.filter((cp) => cp.properties.controlPoint);
+    const midpoints = existingControlPointFeatures.filter((cp) => cp.properties.midpoint);
 
-    // Update handle positions
-    handles.forEach((handle, i) => {
-      if (i < coords.length && handle.id) {
-        draw.state.updateHandle(handle.id, coords[i]);
+    // Update control point positions
+    controlPointFeatures.forEach((controlPoint, i) => {
+      if (i < coords.length && controlPoint.id) {
+        draw.state.updateControlPoint(controlPoint.id, coords[i]);
       }
     });
 
@@ -247,13 +249,13 @@ export class EditMode implements DrawMode {
     const ma = toMercator(point(a)).geometry.coordinates;
     const mb = toMercator(point(b)).geometry.coordinates;
     const mid = toWgs84(point([(ma[0] + mb[0]) / 2, (ma[1] + mb[1]) / 2])).geometry.coordinates;
-    draw.state.createHandle(this.getSelectedFeature(draw)!.id!, mid, i, true);
+    draw.state.createControlPoint(this.getSelectedFeature(draw)!.id!, mid, i, true);
   }
 
   private updateMidpoints(
     coords: Position[],
     isPolygon: boolean,
-    existingMidpoints: HandleFeature[],
+    existingMidpoints: ControlPointFeature[],
     draw: DrawController,
   ) {
     let midpointIndex = 0;
@@ -262,7 +264,7 @@ export class EditMode implements DrawMode {
       const mid = this.calculateMidpoint(coords[i], coords[i + 1]);
       const midpointId = existingMidpoints[midpointIndex]?.id;
       if (midpointId !== undefined) {
-        draw.state.updateHandle(midpointId, mid);
+        draw.state.updateControlPoint(midpointId, mid);
         midpointIndex++;
       }
     }
@@ -271,7 +273,7 @@ export class EditMode implements DrawMode {
       const mid = this.calculateMidpoint(coords[coords.length - 1], coords[0]);
       const midpointId = existingMidpoints[midpointIndex]?.id;
       if (midpointId !== undefined) {
-        draw.state.updateHandle(midpointId, mid);
+        draw.state.updateControlPoint(midpointId, mid);
       }
     }
   }
@@ -284,7 +286,7 @@ export class EditMode implements DrawMode {
 
   private deselectAll(draw: DrawController) {
     const selected = this.getSelectedFeature(draw);
-    if (selected?.id) draw.state.clearHandles(selected.id);
+    if (selected?.id) draw.state.clearControlPoints(selected.id);
     draw.state.clearSelection();
   }
 
@@ -298,8 +300,11 @@ export class EditMode implements DrawMode {
   private regenerateAndUpdate(draw: DrawController, feature: Feature, coords: Position[]): void {
     if (!feature.id) return;
 
+    // Update control points in state
+    draw.state.setControlPoints(feature.id, coords);
+
     const modeName = feature.properties?.mode;
-    const props = { ...feature.properties, handles: coords };
+    const props = { ...feature.properties };
 
     if (modeName) {
       const mode = draw.getMode(modeName);

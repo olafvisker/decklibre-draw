@@ -7,7 +7,7 @@ export class DrawPolygonMode extends BaseDrawMode {
   name = "polygon";
 
   constructor(options?: Partial<BaseDrawModeOptions>) {
-    super({ handleDisplay: "first-last", ...options });
+    super({ controlPointDisplay: "first-last", ...options });
   }
 
   generate(
@@ -26,7 +26,6 @@ export class DrawPolygonMode extends BaseDrawMode {
     feature.properties = {
       ...props,
       mode: this.name,
-      handles: points,
     };
     return feature;
   }

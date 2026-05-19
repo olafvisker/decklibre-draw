@@ -26,7 +26,6 @@ export class DrawPointMode extends BaseDrawMode {
     feature.properties = {
       ...props,
       mode: this.name,
-      handles: points,
     };
     return feature;
   }

@@ -14,7 +14,7 @@ export class DrawCircleMode extends BaseDrawMode {
 
   constructor(options?: Partial<CircleOptions>) {
     const { steps = 64, ...baseOptions } = options || {};
-    super({ pointCount: 2, handleDisplay: "first", ...baseOptions });
+    super({ pointCount: 2, controlPointDisplay: "first", ...baseOptions });
     this.steps = steps;
   }
 
@@ -33,7 +33,6 @@ export class DrawCircleMode extends BaseDrawMode {
     feature.properties = {
       ...props,
       mode: this.name,
-      handles: points,
       insertable: false,
     };
     return feature;

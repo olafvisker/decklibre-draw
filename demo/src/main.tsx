@@ -168,9 +168,9 @@ function Root() {
       parameters: { depthWriteEnabled: false },
 
       getFillColor: (f: Feature) => {
-        const { handle, midpoint, selected, preview } = f.properties || {};
+        const { controlPoint, midpoint, selected, preview } = f.properties || {};
         const isPoint = f.geometry.type === "Point";
-        if (handle || midpoint) return [251, 176, 59, 255];
+        if (controlPoint || midpoint) return [251, 176, 59, 255];
 
         const opacity = isPoint ? 255 : 25;
         const active = selected || preview;
@@ -178,8 +178,8 @@ function Root() {
       },
 
       getLineColor: (f: Feature) => {
-        const { handle, selected, preview } = f.properties || {};
-        if (f.geometry.type === "Point" || handle) return [255, 255, 255, 255];
+        const { controlPoint, selected, preview } = f.properties || {};
+        if (f.geometry.type === "Point" || controlPoint) return [255, 255, 255, 255];
 
         const active = selected || preview;
         return active ? [251, 176, 59, 255] : [59, 178, 208, 255];

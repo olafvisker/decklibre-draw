@@ -7,7 +7,7 @@ export class DrawLineStringMode extends BaseDrawMode {
   name = "line";
 
   constructor(options?: Partial<BaseDrawModeOptions>) {
-    super({ handleDisplay: "last", ...options });
+    super({ controlPointDisplay: "last", ...options });
   }
 
   generate(
@@ -26,7 +26,6 @@ export class DrawLineStringMode extends BaseDrawMode {
     feature.properties = {
       ...props,
       mode: this.name,
-      handles: points,
     };
     return feature;
   }

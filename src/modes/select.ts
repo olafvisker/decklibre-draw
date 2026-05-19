@@ -93,14 +93,18 @@ export class SelectMode implements DrawMode {
 
     if (!primaryFeature || !primaryFeature.id || !primaryFeature.properties?.mode) return;
 
-    const handles: Position[] = primaryFeature.properties.handles || [];
+    const controlPoints = draw.state.getControlPoints(primaryFeature.id) || [];
     const mode = draw.getMode(primaryFeature.properties.mode);
 
     if (mode) {
-      const movedHandles = handles.map(([x, y]) => [x + dx, y + dy]);
+      const movedControlPoints = controlPoints.map(([x, y]) => [x + dx, y + dy]);
+
+      // Update control points in state
+      draw.state.setControlPoints(primaryFeature.id, movedControlPoints);
+
       // Pass single ID for backward compatibility, or array for grouped features
       const idArg = groupIds.length === 1 ? groupIds[0] : groupIds;
-      const result = mode.generate?.(draw, movedHandles, idArg, { ...primaryFeature.properties, handles: movedHandles });
+      const result = mode.generate?.(draw, movedControlPoints, idArg, primaryFeature.properties);
 
       if (result) {
         const features = Array.isArray(result) ? result : [result];

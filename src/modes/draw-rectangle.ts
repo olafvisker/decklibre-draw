@@ -7,7 +7,7 @@ export class DrawRectangleMode extends BaseDrawMode {
   name = "rectangle";
 
   constructor(options?: Partial<BaseDrawModeOptions>) {
-    super({ pointCount: 2, handleDisplay: "first", ...options });
+    super({ pointCount: 2, controlPointDisplay: "first", ...options });
   }
 
   generate(
@@ -38,7 +38,6 @@ export class DrawRectangleMode extends BaseDrawMode {
     feature.properties = {
       ...props,
       mode: this.name,
-      handles: points,
       insertable: false,
     };
     return feature;
