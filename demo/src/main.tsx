@@ -12,7 +12,6 @@ import { MapboxOverlay, type MapboxOverlayProps } from "@deck.gl/mapbox";
 import { DrawController, DEFAULT_MODES } from "../../src/core";
 import type { EditMode, SelectMode } from "../../src/modes";
 import type { Feature } from "geojson";
-import { CircleWithBoxMode } from "./circle-with-box-mode";
 
 import {
   GithubIcon,
@@ -27,6 +26,7 @@ import {
   WaypointsIcon,
   ZapIcon,
 } from "lucide-react";
+import { DrawCircleWithBoxMode } from "./draw-circle-with-box";
 
 interface DeckGLOverlayProps extends MapboxOverlayProps {
   onReady?: (deck: Deck, map: maplibregl.Map) => void;
@@ -145,7 +145,7 @@ function Root() {
       layerIds: ["geojson-layer"],
       modes: {
         ...DEFAULT_MODES,
-        "circle-with-box": new CircleWithBoxMode(),
+        "circle-with-box": new DrawCircleWithBoxMode(),
       },
     });
     draw.changeModeOptions<SelectMode>("select", { dragWithoutSelect: true });
