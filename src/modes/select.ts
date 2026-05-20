@@ -1,7 +1,6 @@
 import type { Position } from "geojson";
 import { DrawController } from "../core";
 import type { DrawInfo, DrawMode } from "../core";
-import { getGroupIds, getPrimaryFeature } from "../core/group-utils";
 import { EditMode } from "./edit";
 
 interface SelectModeOptions {
@@ -31,7 +30,7 @@ export class SelectMode implements DrawMode {
     draw.setCursor({ default: "default", hover: "pointer" });
     if (this.startSelectedId) {
       // Resolve to primary feature for grouped features
-      const primaryFeature = getPrimaryFeature(draw.state, this.startSelectedId);
+      const primaryFeature = draw.state.getPrimaryFeature( this.startSelectedId);
       const idToSelect = primaryFeature?.id ?? this.startSelectedId;
       draw.state.setSelected(idToSelect);
     }
@@ -54,7 +53,7 @@ export class SelectMode implements DrawMode {
     }
 
     // For grouped features, always use the primary feature ID
-    const primaryFeature = getPrimaryFeature(draw.state, f.id);
+    const primaryFeature = draw.state.getPrimaryFeature( f.id);
     const idToSelect = primaryFeature?.id ?? f.id;
 
     if (!this.preventEdit && draw.state.isSelected(idToSelect)) {
@@ -69,7 +68,7 @@ export class SelectMode implements DrawMode {
     if (!feature?.id) return;
 
     // For grouped features, use the primary feature ID for dragging
-    const primaryFeature = getPrimaryFeature(draw.state, feature.id);
+    const primaryFeature = draw.state.getPrimaryFeature( feature.id);
     const featureId = primaryFeature?.id ?? feature.id;
 
     // Allow drag if dragWithoutSelect is enabled OR if primary feature is selected
@@ -88,8 +87,8 @@ export class SelectMode implements DrawMode {
     const dy = info.lat - this._dragStartCoord[1];
 
     // Get all features in the group
-    const groupIds = getGroupIds(draw.state, this._dragFeatureId);
-    const primaryFeature = getPrimaryFeature(draw.state, this._dragFeatureId);
+    const groupIds = draw.state.getGroupIds( this._dragFeatureId);
+    const primaryFeature = draw.state.getPrimaryFeature( this._dragFeatureId);
 
     if (!primaryFeature || !primaryFeature.id || !primaryFeature.properties?.mode) return;
 

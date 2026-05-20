@@ -1,7 +1,6 @@
 import type { DrawInfo, ControlPointFeatureProperties, EditContext, ControlPointFeature } from "../core";
 import type { DrawMode } from "../core";
 import { DrawController } from "../core";
-import { getGroupIds, getPrimaryFeature } from "../core/group-utils";
 import type { Feature, Position } from "geojson";
 import { toMercator, toWgs84, point } from "@turf/turf";
 import { SelectMode } from "./select";
@@ -35,7 +34,7 @@ export class EditMode implements DrawMode {
     draw.setCursor({ default: "default", hover: "pointer" });
     if (this.startSelectedId) {
       // Resolve to primary feature for grouped features
-      const primaryFeature = getPrimaryFeature(draw.state, this.startSelectedId);
+      const primaryFeature = draw.state.getPrimaryFeature( this.startSelectedId);
       const idToSelect = primaryFeature?.id ?? this.startSelectedId;
       draw.state.setSelected(idToSelect);
     }
@@ -66,7 +65,7 @@ export class EditMode implements DrawMode {
     }
 
     // Resolve to primary feature for grouped features
-    const primaryFeature = getPrimaryFeature(draw.state, f.id);
+    const primaryFeature = draw.state.getPrimaryFeature( f.id);
     const primaryId = primaryFeature?.id ?? f.id;
 
     if (this.instantEdit) {
@@ -84,7 +83,7 @@ export class EditMode implements DrawMode {
     const { controlPoint, midpoint, index } = (f.properties as ControlPointFeatureProperties) || {};
 
     // Resolve to primary feature for grouped features
-    const primaryFeature = getPrimaryFeature(draw.state, f.id);
+    const primaryFeature = draw.state.getPrimaryFeature( f.id);
     const primaryId = primaryFeature?.id ?? f.id;
 
     if (this.dragWithoutSelect || draw.state.isSelected(primaryId)) {
@@ -310,7 +309,7 @@ export class EditMode implements DrawMode {
       const mode = draw.getMode(modeName);
       if (mode?.generate) {
         // Get all features in the group
-        const groupIds = getGroupIds(draw.state, feature.id);
+        const groupIds = draw.state.getGroupIds( feature.id);
         const features = mode.generate(draw, coords, groupIds, props);
 
         features.forEach(f => {

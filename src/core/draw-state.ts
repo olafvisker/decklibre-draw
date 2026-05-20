@@ -8,7 +8,6 @@ export type ShapeFeatureProperties = GeoJsonProperties & {
   selected?: boolean;
   insertable?: boolean;
   groupId?: string | number;
-  groupPrimary?: boolean;
 };
 
 export type ControlPointFeatureProperties = GeoJsonProperties & {
@@ -76,28 +75,6 @@ export class DrawState {
     return this._featureMap.get(id);
   }
 
-  private _normalizeFeature(f: Feature): DrawFeature {
-    const feature = { ...f, id: f.id ?? uuid() } as DrawFeature;
-
-    // Check if this is a control point feature (has control point-specific properties)
-    const isControlPoint =
-      feature.properties &&
-      ("controlPoint" in feature.properties || "midpoint" in feature.properties || "featureId" in feature.properties);
-
-    // If it's not a control point and missing shape properties, add defaults
-    if (!isControlPoint) {
-      const props = (feature.properties || {}) as Partial<ShapeFeatureProperties>;
-      if (!props.mode) {
-        feature.properties = {
-          ...props,
-          mode: props.mode ?? "simple",
-        };
-      }
-    }
-
-    return feature;
-  }
-
   public addFeature(feature: Feature, options?: DrawStateMethodOptions) {
     this.addFeatures([feature], options);
   }
@@ -106,9 +83,8 @@ export class DrawState {
     const added: DrawFeature[] = [];
     if (!features.length) return;
     for (const f of features) {
-      const feature = this._normalizeFeature(f);
-      this._featureMap.set(feature.id!, feature);
-      added.push(feature);
+      this._featureMap.set(f.id!, f);
+      added.push(f);
     }
     this._invalidateCache();
     if (!options?.silent) {
@@ -246,9 +222,7 @@ export class DrawState {
   public getControlPointFeatures(featureId: string | number): ControlPointFeature[] {
     return Array.from(this._featureMap.values()).filter(
       (f): f is ControlPointFeature =>
-        f.properties !== null &&
-        "featureId" in f.properties &&
-        f.properties.featureId === featureId
+        f.properties !== null && "featureId" in f.properties && f.properties.featureId === featureId,
     );
   }
 
@@ -288,6 +262,32 @@ export class DrawState {
   public clearSelection(options?: DrawStateMethodOptions) {
     this._selectedFeatureIds.clear();
     this._syncSelectionState(options);
+  }
+
+  // --- Group Management ---
+  public getGroupIds(featureId: string | number): (string | number)[] {
+    const feature = this.getFeature(featureId);
+    if (!feature) return [featureId];
+
+    const groupId = feature.properties?.groupId;
+    if (!groupId) return [featureId];
+
+    return this.features
+      .filter((f) => f.properties?.groupId === groupId)
+      .map((f) => f.id!)
+      .filter((id) => id !== undefined);
+  }
+
+  public getPrimaryFeature(featureId: string | number): DrawFeature | undefined {
+    const groupIds = this.getGroupIds(featureId);
+    return groupIds[0] !== undefined ? this.getFeature(groupIds[0]) : undefined;
+  }
+
+  public selectGroup(featureId: string | number, options?: DrawStateMethodOptions): void {
+    const primary = this.getPrimaryFeature(featureId);
+    if (primary?.id !== undefined) {
+      this.setSelected(primary.id, options);
+    }
   }
 
   private _syncSelectionState(options?: DrawStateMethodOptions) {

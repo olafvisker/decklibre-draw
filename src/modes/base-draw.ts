@@ -98,7 +98,7 @@ export abstract class BaseDrawMode implements DrawMode {
     draw.state.addFeatures(features);
 
     // Store control points in state
-    const primaryId = this.getPrimaryFeatureId(draw);
+    const primaryId = this.getPrimaryFeatureId();
     if (primaryId) {
       draw.state.setControlPoints(primaryId, initialCoords);
     }
@@ -118,14 +118,14 @@ export abstract class BaseDrawMode implements DrawMode {
     });
 
     // Update control points in state
-    const primaryId = this.getPrimaryFeatureId(draw);
+    const primaryId = this.getPrimaryFeatureId();
     if (primaryId) {
       draw.state.setControlPoints(primaryId, coords);
     }
   }
 
   updateControlPoints(draw: DrawController) {
-    const primaryId = this.getPrimaryFeatureId(draw);
+    const primaryId = this.getPrimaryFeatureId();
     if (!primaryId || this.coordinates.length === 0) return;
 
     // Clear control points for all features in the group to avoid overlapping
@@ -161,12 +161,8 @@ export abstract class BaseDrawMode implements DrawMode {
     }
   }
 
-  getPrimaryFeatureId(draw: DrawController): string | number | undefined {
-    // Find the primary feature (one with groupPrimary: true, or the first one)
-    for (const id of this.featureIds) {
-      const feature = draw.state.getFeature(id);
-      if (feature?.properties?.groupPrimary) return id;
-    }
+  protected getPrimaryFeatureId(): string | number | undefined {
+    // First feature is primary
     return this.featureIds[0];
   }
 
