@@ -20,6 +20,7 @@ export default defineConfig({
     },
   },
   build: {
+    outDir: "app",
     rollupOptions: {
       output: {
         manualChunks: {
