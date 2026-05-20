@@ -42,7 +42,6 @@ export class DrawState {
 
   private _featureMap: Map<string | number, DrawFeature> = new Map();
   private _controlPointsMap: Map<string | number, Position[]> = new Map();
-  private _controlPointFeaturesMap: Map<string | number, ControlPointFeature[]> = new Map();
   private _selectedFeatureIds = new Set<string | number>();
 
   // Cache the features array - only recreate when map changes
@@ -139,9 +138,6 @@ export class DrawState {
 
   public removeAllFeature(options?: DrawStateMethodOptions) {
     const ids = Array.from(this._featureMap.keys());
-    for (const featureId of this._controlPointFeaturesMap.keys()) {
-      this.clearControlPoints(featureId, options);
-    }
     const hadSelection = this._selectedFeatureIds.size > 0;
     this._featureMap.clear();
     this._controlPointsMap.clear();
@@ -230,25 +226,27 @@ export class DrawState {
       properties: { controlPoint: !asMidpoint, midpoint: asMidpoint, featureId, index },
     };
 
-    const existing = this._controlPointFeaturesMap.get(featureId) ?? [];
-    this._controlPointFeaturesMap.set(featureId, [...existing, controlPoint]);
     this.addFeature(controlPoint);
     return controlPoint;
   }
 
   public clearControlPoints(featureId: string | number, options?: DrawStateMethodOptions) {
-    const controlPoints = this._controlPointFeaturesMap.get(featureId);
-    if (controlPoints) {
+    const controlPoints = this.getControlPointFeatures(featureId);
+    if (controlPoints.length > 0) {
       this.removeFeatures(
         controlPoints.map((cp) => cp.id!),
         options,
       );
-      this._controlPointFeaturesMap.delete(featureId);
     }
   }
 
-  public getControlPointFeatures(featureId: string | number) {
-    return this._controlPointFeaturesMap.get(featureId) ?? [];
+  public getControlPointFeatures(featureId: string | number): ControlPointFeature[] {
+    return Array.from(this._featureMap.values()).filter(
+      (f): f is ControlPointFeature =>
+        f.properties !== null &&
+        "featureId" in f.properties &&
+        f.properties.featureId === featureId
+    );
   }
 
   public updateControlPoint(controlPointId: string | number, coord: Position, options?: DrawStateMethodOptions) {
@@ -261,18 +259,8 @@ export class DrawState {
     };
 
     this._featureMap.set(controlPointId, updated);
-
-    // Update in control point map
-    const featureId = controlPoint.properties.featureId;
-    const controlPoints = this._controlPointFeaturesMap.get(featureId);
-    if (controlPoints) {
-      const index = controlPoints.findIndex((cp) => cp.id === controlPointId);
-      if (index !== -1) {
-        controlPoints[index] = updated;
-      }
-    }
-
     this._invalidateCache();
+
     if (!options?.silent) {
       this._emit("feature:update", { features: [updated] });
       this._emit("feature:change", { features: this.features });
