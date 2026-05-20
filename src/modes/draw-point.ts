@@ -13,20 +13,20 @@ export class DrawPointMode extends BaseDrawMode {
   generate(
     _draw: DrawController,
     points: Position[],
-    id?: string | number,
+    ids?: (string | number)[],
     props?: Record<string, unknown>,
-  ): Feature<Point> {
+  ): Feature<Point>[] {
     const feature: Feature<Point> = {
       type: "Feature",
       geometry: { type: "Point", coordinates: points[0] },
       properties: {},
     };
 
-    feature.id = id ?? uuid();
+    feature.id = ids?.[0] ?? uuid();
     feature.properties = {
       ...props,
       mode: this.name,
     };
-    return feature;
+    return [feature];
   }
 }

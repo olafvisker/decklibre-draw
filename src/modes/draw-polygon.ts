@@ -13,20 +13,20 @@ export class DrawPolygonMode extends BaseDrawMode {
   generate(
     _draw: DrawController,
     points: Position[],
-    id?: string | number,
+    ids?: (string | number)[],
     props?: Record<string, unknown>,
-  ): Feature<Polygon> {
+  ): Feature<Polygon>[] {
     const feature: Feature<Polygon> = {
       type: "Feature",
       geometry: { type: "Polygon", coordinates: [[...points, points[0]]] },
       properties: {},
     };
 
-    feature.id = id ?? uuid();
+    feature.id = ids?.[0] ?? uuid();
     feature.properties = {
       ...props,
       mode: this.name,
     };
-    return feature;
+    return [feature];
   }
 }

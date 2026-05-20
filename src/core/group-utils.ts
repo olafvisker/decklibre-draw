@@ -8,30 +8,6 @@ export function getGroupId(feature: DrawFeature): string | number | undefined {
 }
 
 /**
- * Check if a feature is part of a group
- */
-export function isGrouped(feature: DrawFeature): boolean {
-  return feature.properties?.groupId !== undefined;
-}
-
-/**
- * Check if a feature is the primary feature in a group
- */
-export function isPrimaryFeature(feature: DrawFeature): boolean {
-  return feature.properties?.groupPrimary === true;
-}
-
-/**
- * Get all features in the same group as the given feature
- */
-export function getGroupFeatures(state: DrawState, feature: DrawFeature): DrawFeature[] {
-  const groupId = getGroupId(feature);
-  if (!groupId) return [feature];
-
-  return state.features.filter(f => getGroupId(f) === groupId);
-}
-
-/**
  * Get all feature IDs in the same group as the given feature
  */
 export function getGroupIds(state: DrawState, featureId: string | number): (string | number)[] {
@@ -42,9 +18,9 @@ export function getGroupIds(state: DrawState, featureId: string | number): (stri
   if (!groupId) return [featureId];
 
   return state.features
-    .filter(f => getGroupId(f) === groupId)
-    .map(f => f.id!)
-    .filter(id => id !== undefined);
+    .filter((f) => getGroupId(f) === groupId)
+    .map((f) => f.id!)
+    .filter((id) => id !== undefined);
 }
 
 /**
@@ -62,22 +38,4 @@ export function getPrimaryFeature(state: DrawState, featureId: string | number):
   // Fallback to first feature
   const firstId = groupIds[0];
   return firstId !== undefined ? state.getFeature(firstId) : undefined;
-}
-
-/**
- * Select all features in a group
- */
-export function selectGroup(state: DrawState, featureId: string | number): void {
-  const groupIds = getGroupIds(state, featureId);
-
-  if (groupIds.length === 1) {
-    state.setSelected(featureId);
-  } else {
-    // Currently DrawState only supports single selection
-    // For now, select just the primary feature but this could be extended
-    const primary = getPrimaryFeature(state, featureId);
-    if (primary?.id !== undefined) {
-      state.setSelected(primary.id);
-    }
-  }
 }

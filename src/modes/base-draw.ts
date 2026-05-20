@@ -1,4 +1,4 @@
-import type { DrawMode, DrawInfo, EditContext } from "../core";
+import type { DrawMode, DrawInfo, EditContext, ShapeFeatureProperties } from "../core";
 import { DrawController } from "../core";
 import type { Feature, Position } from "geojson";
 
@@ -8,7 +8,7 @@ export interface BaseDrawModeConfig {
 }
 
 export interface BaseDrawModeOptions extends BaseDrawModeConfig {
-  properties?: Record<string, unknown>;
+  properties?: Partial<ShapeFeatureProperties>;
 }
 
 export abstract class BaseDrawMode implements DrawMode {
@@ -17,7 +17,7 @@ export abstract class BaseDrawMode implements DrawMode {
   protected config: BaseDrawModeConfig;
   protected coordinates: Position[] = [];
   protected featureIds: (string | number)[] = [];
-  public properties?: Record<string, unknown>;
+  public properties?: Partial<ShapeFeatureProperties>;
 
   constructor(options: BaseDrawModeOptions = {}) {
     const { properties, ...config } = options;
@@ -74,33 +74,27 @@ export abstract class BaseDrawMode implements DrawMode {
   abstract generate(
     draw: DrawController,
     points: Position[],
-    id?: string | number | (string | number)[],
-    props?: Record<string, unknown>,
-  ): Feature | Feature[] | undefined;
+    ids?: (string | number)[],
+    props?: Partial<ShapeFeatureProperties>,
+  ): Feature[];
 
   edit({ controlPoints, controlPointIndex, delta }: EditContext): Position[] {
     const [dx, dy] = delta;
     return controlPoints.map((coord, i) => (i === controlPointIndex ? [coord[0] + dx, coord[1] + dy] : coord));
   }
 
-  public createFeature(draw: DrawController, points: Position[], props?: Record<string, unknown>): Feature | Feature[] | undefined {
+  public createFeature(draw: DrawController, points: Position[], props?: Partial<ShapeFeatureProperties>): Feature[] {
     const mergedProps = { ...this.properties, ...props };
-    const result = this.generate(draw, points, undefined, mergedProps);
-    if (!result) return undefined;
-
-    const features = Array.isArray(result) ? result : [result];
+    const features = this.generate(draw, points, undefined, mergedProps);
     draw.state.addFeatures(features);
-
-    return result;
+    return features;
   }
 
-  protected createInitialFeature(draw: DrawController, coord: Position) {
+  createInitialFeature(draw: DrawController, coord: Position) {
     const initialCoords = this.config.pointCount === 1 ? [coord] : [coord, coord];
-    const result = this.generate(draw, initialCoords, undefined, this.properties);
-    if (!result) return;
+    const features = this.generate(draw, initialCoords, undefined, this.properties);
 
-    const features = Array.isArray(result) ? result : [result];
-    this.featureIds = features.map(f => f.id!).filter(id => id !== undefined);
+    this.featureIds = features.map((f) => f.id!).filter((id) => id !== undefined);
     draw.state.addFeatures(features);
 
     // Store control points in state
@@ -112,17 +106,12 @@ export abstract class BaseDrawMode implements DrawMode {
     if (this.featureIds.length > 0) this.updateControlPoints(draw);
   }
 
-  protected updateShape(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
+  updateShape(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
     if (this.featureIds.length === 0) return;
     const mergedProps = { ...this.properties, ...props };
 
-    // Pass single ID for backward compatibility, or array for grouped features
-    const idArg = this.featureIds.length === 1 ? this.featureIds[0] : this.featureIds;
-    const result = this.generate(draw, coords, idArg, mergedProps);
-    if (!result) return;
-
-    const features = Array.isArray(result) ? result : [result];
-    features.forEach(feature => {
+    const features = this.generate(draw, coords, this.featureIds, mergedProps);
+    features.forEach((feature) => {
       if (feature.id !== undefined) {
         draw.state.updateFeature(feature.id, feature);
       }
@@ -135,12 +124,12 @@ export abstract class BaseDrawMode implements DrawMode {
     }
   }
 
-  protected updateControlPoints(draw: DrawController) {
+  updateControlPoints(draw: DrawController) {
     const primaryId = this.getPrimaryFeatureId(draw);
     if (!primaryId || this.coordinates.length === 0) return;
 
     // Clear control points for all features in the group to avoid overlapping
-    this.featureIds.forEach(id => draw.state.clearControlPoints(id));
+    this.featureIds.forEach((id) => draw.state.clearControlPoints(id));
 
     const { controlPointDisplay = "all" } = this.config;
     const coords = this.coordinates;
@@ -172,7 +161,7 @@ export abstract class BaseDrawMode implements DrawMode {
     }
   }
 
-  protected getPrimaryFeatureId(draw: DrawController): string | number | undefined {
+  getPrimaryFeatureId(draw: DrawController): string | number | undefined {
     // Find the primary feature (one with groupPrimary: true, or the first one)
     for (const id of this.featureIds) {
       const feature = draw.state.getFeature(id);
@@ -181,17 +170,17 @@ export abstract class BaseDrawMode implements DrawMode {
     return this.featureIds[0];
   }
 
-  protected finishShape(draw: DrawController) {
+  finishShape(draw: DrawController) {
     if (this.featureIds.length === 0) return;
     this.updateShape(draw, this.coordinates, { preview: false });
     // Clear control points for all features in the group
-    this.featureIds.forEach(id => draw.state.clearControlPoints(id));
+    this.featureIds.forEach((id) => draw.state.clearControlPoints(id));
     this.reset(draw);
   }
 
-  protected reset(draw: DrawController) {
+  reset(draw: DrawController) {
     // Clear control points for all features in the group
-    this.featureIds.forEach(id => draw.state.clearControlPoints(id));
+    this.featureIds.forEach((id) => draw.state.clearControlPoints(id));
     this.coordinates = [];
     this.featureIds = [];
   }

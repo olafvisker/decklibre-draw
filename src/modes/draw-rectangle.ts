@@ -13,9 +13,9 @@ export class DrawRectangleMode extends BaseDrawMode {
   generate(
     _draw: DrawController,
     points: Position[],
-    id?: string | number,
+    ids?: (string | number)[],
     props?: Record<string, unknown>,
-  ): Feature<Polygon> {
+  ): Feature<Polygon>[] {
     const [start, end] = points;
     const [x1, y1] = start;
     const [x2, y2] = end;
@@ -34,12 +34,12 @@ export class DrawRectangleMode extends BaseDrawMode {
       properties: {},
     };
 
-    feature.id = id ?? uuid();
+    feature.id = ids?.[0] ?? uuid();
     feature.properties = {
       ...props,
       mode: this.name,
       insertable: false,
     };
-    return feature;
+    return [feature];
   }
 }

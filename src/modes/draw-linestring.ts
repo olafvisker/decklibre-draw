@@ -13,20 +13,20 @@ export class DrawLineStringMode extends BaseDrawMode {
   generate(
     _draw: DrawController,
     points: Position[],
-    id?: string | number,
+    ids?: (string | number)[],
     props?: Record<string, unknown>,
-  ): Feature<LineString> {
+  ): Feature<LineString>[] {
     const feature: Feature<LineString> = {
       type: "Feature",
       geometry: { type: "LineString", coordinates: points },
       properties: {},
     };
 
-    feature.id = id ?? uuid();
+    feature.id = ids?.[0] ?? uuid();
     feature.properties = {
       ...props,
       mode: this.name,
     };
-    return feature;
+    return [feature];
   }
 }

@@ -1,4 +1,5 @@
 import type { DrawController } from "./draw-controller";
+import type { ShapeFeatureProperties } from "./draw-state";
 import type { Feature, Position } from "geojson";
 
 export interface DrawInfo {
@@ -30,11 +31,11 @@ export interface DrawMode {
   generate?(
     draw: DrawController,
     points: Position[],
-    id?: string | number | (string | number)[],
-    props?: Record<string, unknown>,
-  ): Feature | Feature[] | undefined;
+    ids?: (string | number)[],
+    props?: Partial<ShapeFeatureProperties>,
+  ): Feature[];
 
-  createFeature?(draw: DrawController, points: Position[], props?: Record<string, unknown>): Feature | Feature[] | undefined;
+  createFeature?(draw: DrawController, points: Position[], props?: Partial<ShapeFeatureProperties>): Feature[];
 
   edit?(context: EditContext): Position[];
 }

@@ -11,22 +11,20 @@ import { distance, point, destination } from "@turf/turf";
 export class CircleWithBoxMode extends DrawCircleMode {
   name = "circle-with-box";
 
-  // @ts-expect-error - Overriding to return array instead of single feature
-  generate(
+  override generate(
     draw: DrawController,
     points: Position[],
-    id?: string | number | (string | number)[],
+    ids?: (string | number)[],
     props?: Record<string, unknown>,
-  ): Feature[] {
+  ): Feature<Polygon>[] {
     if (points.length < 2) {
-      // Return empty array for invalid input
       return [];
     }
 
     const groupId = (props?.groupId as string | number) ?? uuid();
-    const ids = Array.isArray(id) ? id : [uuid(), uuid()];
+    const featureIds = ids && ids.length >= 2 ? ids : [uuid(), uuid()];
 
-    const circle = super.generate(draw, points, ids[0], props);
+    const [circle] = super.generate(draw, points, [featureIds[0]], props);
 
     if (circle.properties) {
       circle.properties.groupId = groupId;
@@ -42,10 +40,10 @@ export class CircleWithBoxMode extends DrawCircleMode {
     const bottomRight = destination(center, boxRadius, 45, { units: "meters" }).geometry.coordinates;
     const bottomLeft = destination(center, boxRadius, 135, { units: "meters" }).geometry.coordinates;
 
-    // Create box with only necessary properties
+    // Create box
     const box: Feature<Polygon> = {
       type: "Feature",
-      id: ids[1],
+      id: featureIds[1],
       geometry: {
         type: "Polygon",
         coordinates: [[topLeft, topRight, bottomRight, bottomLeft, topLeft]],

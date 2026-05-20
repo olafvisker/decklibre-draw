@@ -6,6 +6,9 @@ export type ShapeFeatureProperties = GeoJsonProperties & {
   mode: string;
   preview?: boolean;
   selected?: boolean;
+  insertable?: boolean;
+  groupId?: string | number;
+  groupPrimary?: boolean;
 };
 
 export type ControlPointFeatureProperties = GeoJsonProperties & {
@@ -310,7 +313,7 @@ export class DrawState {
       if (f.properties.selected !== selected) {
         const updated: ShapeFeature = {
           ...f,
-          properties: { ...f.properties, selected },
+          properties: { ...f.properties, selected } as ShapeFeatureProperties,
         };
         this._featureMap.set(id, updated);
         updatedFeatures.push(updated);
