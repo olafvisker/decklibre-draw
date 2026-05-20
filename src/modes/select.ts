@@ -118,7 +118,7 @@ export class SelectMode implements DrawMode {
     draw.setPanning(true);
   }
 
-  onDoubleClick(info: DrawInfo, draw: DrawController, event: MapMouseEvent | MapTouchEvent) {
+  onDoubleClick(info: DrawInfo, _draw: DrawController, event: MapMouseEvent | MapTouchEvent) {
     const f = info.feature;
     if (!f?.id) return;
     event.preventDefault();

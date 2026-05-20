@@ -94,9 +94,16 @@ function Toolbar({ draw }: { draw: DrawController | null }) {
 
   const deleteSelected = () => {
     const selectedIds = draw?.state.selectedIds;
-    if (selectedIds && selectedIds.length > 0) {
-      draw?.state.removeFeatures(selectedIds);
+    if (!selectedIds || selectedIds.length === 0) return;
+
+    // Collect all IDs including grouped features
+    const allIds = new Set<string | number>();
+    for (const id of selectedIds) {
+      const groupIds = draw.state.getGroupIds(id);
+      groupIds.forEach(gid => allIds.add(gid));
     }
+
+    draw.state.removeFeatures(Array.from(allIds));
   };
 
   return (

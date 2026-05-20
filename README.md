@@ -2,7 +2,7 @@
 
 ![Tool](assets/tool.gif)
 
-**decklibre-draw** is a lightweight library for drawing and editing geometries on **Deck.gl** and **MapLibre GL**. Modes define a **feature generator** and a **handle edit** function, which separate editable points (handles) from the final shapes themselves.
+**decklibre-draw** is a lightweight library for drawing and editing geometries on **Deck.gl** and **MapLibre GL**. Modes define a **feature generator** and a **control point edit** function, which separate editable points (control points) from the final shapes themselves.
 
 - Draw and edit points, lines, polygons, circles, and rectangles
 - Custom feature generators allow creating new types of geometries
@@ -88,10 +88,10 @@ controller.getMode("point").properties = { color: 'green', size: 10 };
 
 #### Programmatic Feature Creation
 
-Create features programmatically using a mode's generator, ensuring they have the correct properties (mode, handles) for editing:
+Create features programmatically using a mode's generator:
 
 ```ts
-// Via controller
+// Via controller (using control points)
 controller.createFeature("point", [[lng, lat]], { type: 'marker' });
 
 // Or directly via mode
@@ -99,18 +99,19 @@ const mode = controller.getMode("point");
 mode?.createFeature(controller, [[lng, lat]], { type: 'marker' });
 ```
 
-Both methods use the mode's `generate()` function and add the feature to state, making it immediately editable.
+Both methods use the mode's `generate()` function to create features and add them to state. The control points you pass are stored, making features immediately editable. For features added directly to state (without using `createFeature`), control points are automatically extracted from the geometry when first accessed.
 
 ### Feature Properties
 
 Features created by decklibre-draw include standard properties for editing and selection. Understanding these properties helps when styling features or creating custom modes.
+
+> **Note:** Control points are stored separately in the DrawState, not in feature properties. This keeps your GeoJSON clean and separates UI state from data.
 
 #### Required Properties (for editable features)
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `mode` | `string` | The name of the mode that created this feature. Used to find the correct generator when regenerating during edits. |
-| `handles` | `Position[]` | The editable control points for this feature. These are the coordinates that can be moved to reshape the feature. |
 
 #### Optional Standard Properties
 
@@ -118,18 +119,18 @@ Features created by decklibre-draw include standard properties for editing and s
 |----------|------|-------------|
 | `selected` | `boolean` | Whether the feature is currently selected. Automatically managed by DrawState. |
 | `preview` | `boolean` | Whether the feature is a preview (temporary during drawing). |
-| `insertable` | `boolean` | Whether midpoint handles can be inserted to add vertices. Default: `true` for lines/polygons, `false` for circles/rectangles. |
+| `insertable` | `boolean` | Whether midpoint control points can be inserted to add vertices. Default: `true` for lines/polygons, `false` for circles/rectangles. |
 
-#### Handle-specific Properties
+#### Control Point-specific Properties
 
-Features representing edit handles have special properties:
+Features representing edit control points have special properties:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `handle` | `boolean` | Marks this as a vertex handle that can be dragged. |
-| `midpoint` | `boolean` | Marks this as a midpoint handle (between vertices) for inserting new points. |
-| `featureId` | `string \| number` | The ID of the parent feature this handle belongs to. |
-| `index` | `number` | The index of this handle in the handles array. |
+| `controlPoint` | `boolean` | Marks this as a vertex control point that can be dragged. |
+| `midpoint` | `boolean` | Marks this as a midpoint control point (between vertices) for inserting new points. |
+| `featureId` | `string \| number` | The ID of the parent feature this control point belongs to. |
+| `index` | `number` | The index of this control point in the control points array. |
 
 #### Grouped Features Properties
 
@@ -137,8 +138,7 @@ For features that should move/edit together:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `groupId` | `string \| number` | **Optional.** Links multiple features together. All features with the same `groupId` are selected/moved/edited as one. |
-| `groupPrimary` | `boolean` | **Optional.** Marks the primary feature in a group. This feature's handles control the entire group. Only one feature per group should have this set to `true`. |
+| `groupId` | `string \| number` | **Optional.** Links multiple features together. All features with the same `groupId` are selected/moved/edited as one. The first feature in the group is considered the primary feature. |
 
 **Example feature with standard properties:**
 
@@ -149,7 +149,6 @@ For features that should move/edit together:
   geometry: { type: "Polygon", coordinates: [...] },
   properties: {
     mode: "polygon",           // Required: mode that created it
-    handles: [[...], [...]],   // Required: editable points
     selected: false,           // Managed by state
     preview: false,            // Managed during drawing
     insertable: true,          // Optional: allow vertex insertion
@@ -187,16 +186,16 @@ All interaction modes in **decklibre-draw** implement the `DrawMode` interface. 
 A mode defines **two independent parts**:
 
 - **`generate()` → Shape creation**
-  Converts clicked **points (handles)** into the final GeoJSON geometry.
+  Converts clicked **points (control points)** into the final GeoJSON geometry.
   The rendered shape is always derived from these points.
 
-- **`edit()` → Handle editing**
-  Controls how handles move and how their movement updates the underlying points.
+- **`edit()` → Control point editing**
+  Controls how control points move and how their movement updates the underlying points.
   This fully separates **editing logic from drawing logic**.
 
 Because of this separation:
 
-- The shape can be fully independent from it's handles.
+- The shape can be fully independent from its control points.
 - Custom geometries can define completely custom editing behavior independent from drawing
 
 ```ts
@@ -214,53 +213,62 @@ export interface DrawMode {
   onEnter?: (draw: DrawController) => void;
   onExit?: (draw: DrawController) => void;
 
-  onClick?: (info: DrawInfo, draw: DrawController) => void;
-  onDoubleClick?: (info: DrawInfo, draw: DrawController) => void;
-  onMouseMove?: (info: DrawInfo, draw: DrawController) => void;
-  onMouseDown?: (info: DrawInfo, draw: DrawController) => void;
-  onMouseUp?: (info: DrawInfo, draw: DrawController) => void;
+  onClick?: (info: DrawInfo, draw: DrawController, event: MapMouseEvent | MapTouchEvent) => void;
+  onDoubleClick?: (info: DrawInfo, draw: DrawController, event: MapMouseEvent | MapTouchEvent) => void;
+  onMouseMove?: (info: DrawInfo, draw: DrawController, event: MapMouseEvent | MapTouchEvent) => void;
+  onMouseDown?: (info: DrawInfo, draw: DrawController, event: MapMouseEvent | MapTouchEvent) => void;
+  onMouseUp?: (info: DrawInfo, draw: DrawController, event: MapMouseEvent | MapTouchEvent) => void;
 
   generate?(
     draw: DrawController,
     points: Position[],
-    id?: string | number | (string | number)[],
-    props?: Record<string, unknown>
-  ): Feature | Feature[] | undefined;
+    ids?: (string | number)[],
+    props?: Partial<ShapeFeatureProperties>
+  ): Feature[];
+
+  createFeature?(draw: DrawController, points: Position[], props?: Partial<ShapeFeatureProperties>): Feature[];
 
   edit?(context: EditContext): Position[];
 }
 ```
 
-You can also extend the `BaseDrawMode` which handles the basic coordinate collection, preview rendering, handles, and finishing logic for you.
+**Event handlers** now receive the raw MapLibre event as a third parameter, giving you access to:
+- `event.preventDefault()` - prevent default map behaviors (like zoom)
+- `event.shiftKey`, `event.ctrlKey`, `event.metaKey` - modifier keys
+- `event.button` - which mouse button was clicked
+
+You can also extend the `BaseDrawMode` which handles the basic coordinate collection, preview rendering, control points, and finishing logic for you.
 
 - **pointCount** – Auto-finish after N clicks (otherwise double-click finishes)
-- **handleDisplay** – Which handles are editable while drawing (`none, all, last, first, first-last`)
+- **controlPointDisplay** – Which control points are shown while drawing (`none`, `all`, `last`, `first`, `first-last`)
 
 ```ts
 export class DrawTriangleMode extends BaseDrawMode {
   name = "triangle";
 
   constructor() {
-    super({ pointCount: 3, handleDisplay: "first-last" });
+    super({ pointCount: 3, controlPointDisplay: "first-last" });
   }
 
   generate(
-    _draw,
+    _draw: DrawController,
     points: Position[],
-    id?: string | number,
-    props?: Record<string, unknown>
-  ): Feature<Polygon> | undefined {
-    if (points.length < 3) return;
+    ids?: (string | number)[],
+    props?: Partial<ShapeFeatureProperties>
+  ): Feature<Polygon>[] {
+    if (points.length < 3) return [];
 
-    return {
+    const feature: Feature<Polygon> = {
       type: "Feature",
-      id: id ?? uuid(),
+      id: ids?.[0] ?? uuid(),
       geometry: {
         type: "Polygon",
         coordinates: [[...points, points[0]]],
       },
-      properties: { mode: this.name, handles: points, ...props },
+      properties: { ...props, mode: this.name },
     };
+
+    return [feature];
   }
 }
 ```
@@ -272,29 +280,29 @@ The `generate()` method can return multiple features that behave as a single uni
 **Key concepts:**
 - Return an array of features from `generate()`
 - Add a `groupId` to link features together
-- Mark one feature as `groupPrimary: true` (defaults to first feature)
+- The first feature in the array is the primary feature
 - All features in the group move/edit together
-- Only the primary feature shows edit handles
+- Only the primary feature shows edit control points
 
 ```ts
 export class CircleWithBoxMode extends BaseDrawMode {
   name = "circle-with-box";
 
   constructor() {
-    super({ pointCount: 2, handleDisplay: "first" });
+    super({ pointCount: 2, controlPointDisplay: "first" });
   }
 
   generate(
     _draw: DrawController,
     points: Position[],
-    id?: string | number | (string | number)[],
-    props?: Record<string, unknown>,
-  ): Feature[] | undefined {
-    if (points.length < 2) return;
+    ids?: (string | number)[],
+    props?: Partial<ShapeFeatureProperties>,
+  ): Feature[] {
+    if (points.length < 2) return [];
 
     // Reuse existing groupId if updating, otherwise create new one
     const groupId = (props?.groupId as string | number) ?? uuid();
-    const ids = Array.isArray(id) ? id : [uuid(), uuid()];
+    const featureIds = ids && ids.length >= 2 ? ids : [uuid(), uuid()];
 
     // Generate the circle using the same logic as DrawCircleMode
     const circleFeature = generateCircle(points, { steps: 64 });
@@ -310,25 +318,23 @@ export class CircleWithBoxMode extends BaseDrawMode {
     const bottomRight = destination(center, boxRadius, 45, { units: "meters" }).geometry.coordinates;
     const bottomLeft = destination(center, boxRadius, 135, { units: "meters" }).geometry.coordinates;
 
-    // Circle (primary feature with handles)
+    // Circle (primary feature - listed first)
     const circle: Feature<Polygon> = {
       type: "Feature",
-      id: ids[0],
+      id: featureIds[0],
       geometry: circleFeature.geometry,
       properties: {
         ...props,
         mode: this.name,
-        handles: points,
         groupId,
-        groupPrimary: true, // This controls the group
         insertable: false,
       },
     };
 
-    // Bounding box
+    // Bounding box (secondary feature)
     const box: Feature<Polygon> = {
       type: "Feature",
-      id: ids[1],
+      id: featureIds[1],
       geometry: {
         type: "Polygon",
         coordinates: [[topLeft, topRight, bottomRight, bottomLeft, topLeft]],
@@ -342,12 +348,14 @@ export class CircleWithBoxMode extends BaseDrawMode {
       },
     };
 
-    return [circle, box];
+    return [circle, box]; // First feature is primary
   }
+}
 ```
 
 **How it works:**
 - When you click any feature in the group, the whole group is selected
-- Dragging moves all features together based on the primary feature's handles
-- Editing handles (in edit mode) updates all features in the group
+- Dragging moves all features together based on the primary feature's control points
+- Editing control points (in edit mode) updates all features in the group
 - Each feature can have its own properties (colors, styles, etc.)
+- The primary feature is always the first one in the returned array

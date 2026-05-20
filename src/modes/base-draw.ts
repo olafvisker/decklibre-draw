@@ -87,6 +87,13 @@ export abstract class BaseDrawMode implements DrawMode {
     const mergedProps = { ...this.properties, ...props };
     const features = this.generate(draw, points, undefined, mergedProps);
     draw.state.addFeatures(features);
+
+    // Store control points in state so they don't need to be extracted from geometry
+    const primaryId = features[0]?.id;
+    if (primaryId) {
+      draw.state.setControlPoints(primaryId, points);
+    }
+
     return features;
   }
 
