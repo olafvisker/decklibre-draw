@@ -4,6 +4,7 @@ import { DrawController } from "../core";
 import type { Feature, Position } from "geojson";
 import { toMercator, toWgs84, point } from "@turf/turf";
 import { SelectMode } from "./select";
+import type { MapMouseEvent, MapTouchEvent } from "maplibre-gl";
 
 interface EditModeOptions {
   selectedId?: string | number;
@@ -143,6 +144,13 @@ export class EditMode implements DrawMode {
 
     if (!info.feature || (!info.feature.properties?.controlPoint && !info.feature.properties?.midpoint)) {
       draw.setDoubleClickZoom(true);
+    }
+  }
+
+  onDoubleClick(info: DrawInfo, _draw: DrawController, event: MapMouseEvent | MapTouchEvent) {
+    // Prevent zoom when double-clicking features or control points
+    if (info.feature?.id) {
+      event.preventDefault();
     }
   }
 

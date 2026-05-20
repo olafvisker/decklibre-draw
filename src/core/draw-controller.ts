@@ -313,11 +313,12 @@ export class DrawController {
     }
   }
 
-  private _onMouseDown = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onMouseDown?.(this._buildInfo(e), this);
-  private _onMouseMove = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onMouseMove?.(this._buildInfo(e), this);
-  private _onMouseUp = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onMouseUp?.(this._buildInfo(e), this);
-  private _onClick = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onClick?.(this._buildInfo(e), this);
-  private _onDoubleClick = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onDoubleClick?.(this._buildInfo(e), this);
+  private _onMouseDown = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onMouseDown?.(this._buildInfo(e), this, e);
+  private _onMouseMove = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onMouseMove?.(this._buildInfo(e), this, e);
+  private _onMouseUp = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onMouseUp?.(this._buildInfo(e), this, e);
+  private _onClick = (e: MapMouseEvent | MapTouchEvent) => this._mode?.onClick?.(this._buildInfo(e), this, e);
+  private _onDoubleClick = (e: MapMouseEvent | MapTouchEvent) =>
+    this._mode?.onDoubleClick?.(this._buildInfo(e), this, e);
 
   private _onPanStart = () => {
     this._panning = true;

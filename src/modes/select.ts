@@ -2,11 +2,11 @@ import type { Position } from "geojson";
 import { DrawController } from "../core";
 import type { DrawInfo, DrawMode } from "../core";
 import { EditMode } from "./edit";
+import type { MapMouseEvent, MapTouchEvent } from "maplibre-gl";
 
 interface SelectModeOptions {
   selectedId?: string | number;
   dragWithoutSelect?: boolean;
-  preventEdit?: boolean;
 }
 
 export class SelectMode implements DrawMode {
@@ -14,15 +14,13 @@ export class SelectMode implements DrawMode {
 
   public startSelectedId?: string | number;
   public dragWithoutSelect = false;
-  public preventEdit = false;
 
   private _dragging = false;
   private _dragStartCoord?: Position;
   private _dragFeatureId?: string | number;
 
-  constructor({ selectedId, dragWithoutSelect, preventEdit }: SelectModeOptions = {}) {
+  constructor({ selectedId, dragWithoutSelect }: SelectModeOptions = {}) {
     this.startSelectedId = selectedId;
-    this.preventEdit = !!preventEdit;
     if (dragWithoutSelect) this.dragWithoutSelect = dragWithoutSelect;
   }
 
@@ -30,7 +28,7 @@ export class SelectMode implements DrawMode {
     draw.setCursor({ default: "default", hover: "pointer" });
     if (this.startSelectedId) {
       // Resolve to primary feature for grouped features
-      const primaryFeature = draw.state.getPrimaryFeature( this.startSelectedId);
+      const primaryFeature = draw.state.getPrimaryFeature(this.startSelectedId);
       const idToSelect = primaryFeature?.id ?? this.startSelectedId;
       draw.state.setSelected(idToSelect);
     }
@@ -53,10 +51,10 @@ export class SelectMode implements DrawMode {
     }
 
     // For grouped features, always use the primary feature ID
-    const primaryFeature = draw.state.getPrimaryFeature( f.id);
+    const primaryFeature = draw.state.getPrimaryFeature(f.id);
     const idToSelect = primaryFeature?.id ?? f.id;
 
-    if (!this.preventEdit && draw.state.isSelected(idToSelect)) {
+    if (draw.state.isSelected(idToSelect)) {
       draw.changeMode<EditMode>("edit", { startSelectedId: idToSelect });
     } else {
       draw.state.setSelected(idToSelect);
@@ -68,7 +66,7 @@ export class SelectMode implements DrawMode {
     if (!feature?.id) return;
 
     // For grouped features, use the primary feature ID for dragging
-    const primaryFeature = draw.state.getPrimaryFeature( feature.id);
+    const primaryFeature = draw.state.getPrimaryFeature(feature.id);
     const featureId = primaryFeature?.id ?? feature.id;
 
     // Allow drag if dragWithoutSelect is enabled OR if primary feature is selected
@@ -87,8 +85,8 @@ export class SelectMode implements DrawMode {
     const dy = info.lat - this._dragStartCoord[1];
 
     // Get all features in the group
-    const groupIds = draw.state.getGroupIds( this._dragFeatureId);
-    const primaryFeature = draw.state.getPrimaryFeature( this._dragFeatureId);
+    const groupIds = draw.state.getGroupIds(this._dragFeatureId);
+    const primaryFeature = draw.state.getPrimaryFeature(this._dragFeatureId);
 
     if (!primaryFeature || !primaryFeature.id || !primaryFeature.properties?.mode) return;
 
@@ -103,7 +101,7 @@ export class SelectMode implements DrawMode {
 
       const features = mode.generate(draw, movedControlPoints, groupIds, primaryFeature.properties);
 
-      features.forEach(feature => {
+      features.forEach((feature) => {
         if (feature.id !== undefined) {
           draw.state.updateFeature(feature.id, feature);
         }
@@ -118,5 +116,11 @@ export class SelectMode implements DrawMode {
     this._dragStartCoord = undefined;
     this._dragFeatureId = undefined;
     draw.setPanning(true);
+  }
+
+  onDoubleClick(info: DrawInfo, draw: DrawController, event: MapMouseEvent | MapTouchEvent) {
+    const f = info.feature;
+    if (!f?.id) return;
+    event.preventDefault();
   }
 }

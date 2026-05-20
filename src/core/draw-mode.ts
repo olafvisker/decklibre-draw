@@ -1,6 +1,7 @@
 import type { DrawController } from "./draw-controller";
 import type { ShapeFeatureProperties } from "./draw-state";
 import type { Feature, Position } from "geojson";
+import type { MapMouseEvent, MapTouchEvent } from "maplibre-gl";
 
 export interface DrawInfo {
   x: number;
@@ -22,11 +23,11 @@ export interface DrawMode {
   onEnter?: (draw: DrawController) => void;
   onExit?: (draw: DrawController) => void;
 
-  onClick?: (info: DrawInfo, draw: DrawController) => void;
-  onDoubleClick?: (info: DrawInfo, draw: DrawController) => void;
-  onMouseMove?: (info: DrawInfo, draw: DrawController) => void;
-  onMouseDown?: (info: DrawInfo, draw: DrawController) => void;
-  onMouseUp?: (info: DrawInfo, draw: DrawController) => void;
+  onClick?: (info: DrawInfo, draw: DrawController, event: MapMouseEvent | MapTouchEvent) => void;
+  onDoubleClick?: (info: DrawInfo, draw: DrawController, event: MapMouseEvent | MapTouchEvent) => void;
+  onMouseMove?: (info: DrawInfo, draw: DrawController, event: MapMouseEvent | MapTouchEvent) => void;
+  onMouseDown?: (info: DrawInfo, draw: DrawController, event: MapMouseEvent | MapTouchEvent) => void;
+  onMouseUp?: (info: DrawInfo, draw: DrawController, event: MapMouseEvent | MapTouchEvent) => void;
 
   generate?(
     draw: DrawController,
