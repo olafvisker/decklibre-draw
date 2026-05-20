@@ -8,7 +8,7 @@ import { distance, point, destination } from "@turf/turf";
  * Example of a grouped features mode:
  * Extends DrawCircleMode to add a bounding box around the circle.
  */
-export class CircleWithBoxMode extends DrawCircleMode {
+export class DrawCircleWithBoxMode extends DrawCircleMode {
   name = "circle-with-box";
 
   override generate(
