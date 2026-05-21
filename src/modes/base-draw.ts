@@ -68,7 +68,7 @@ export abstract class BaseDrawMode implements DrawMode {
   }
 
   onMouseMove(info: DrawInfo, draw: DrawController) {
-    if (this.featureIds.length === 0 || this.coordinates.length === 0) return;
+    if (this.coordinates.length === 0) return;
     const previewCoords = [...this.coordinates, [info.lng, info.lat]];
     this.updateShape(draw, previewCoords, { preview: true });
   }
@@ -113,7 +113,7 @@ export abstract class BaseDrawMode implements DrawMode {
     } else {
       // Handle dynamic feature count changes
       if (newIds.length !== this.featureIds.length) {
-        const removedIds = this.featureIds.filter(id => !newIds.includes(id));
+        const removedIds = this.featureIds.filter((id) => !newIds.includes(id));
         if (removedIds.length > 0) {
           draw.state.removeFeatures(removedIds);
         }
@@ -177,15 +177,12 @@ export abstract class BaseDrawMode implements DrawMode {
   }
 
   finishShape(draw: DrawController) {
-    if (this.featureIds.length === 0) return;
     this.updateShape(draw, this.coordinates, { preview: false });
-    // Clear control points for all features in the group
     this.featureIds.forEach((id) => draw.state.clearControlPoints(id));
     this.reset(draw);
   }
 
   reset(draw: DrawController) {
-    // Clear control points for all features in the group
     this.featureIds.forEach((id) => draw.state.clearControlPoints(id));
     this.coordinates = [];
     this.featureIds = [];
