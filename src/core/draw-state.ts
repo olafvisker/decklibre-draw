@@ -198,17 +198,15 @@ export class DrawState {
     index: number,
     asMidpoint: boolean = false,
   ): ControlPointFeature {
-    // Get parent feature properties to inherit
     const parentFeature = this.getFeature(featureId);
-    const inheritedProps = parentFeature?.properties ? { ...parentFeature.properties } : {};
+    const { mode, selected, preview, insertable, groupId, ...userProps } = parentFeature?.properties || {};
 
-    // Control point-specific properties override inherited ones
     const controlPoint: ControlPointFeature = {
       id: uuid(),
       type: "Feature",
       geometry: { type: "Point", coordinates: coord },
       properties: {
-        ...inheritedProps,
+        ...userProps,
         controlPoint: !asMidpoint,
         midpoint: asMidpoint,
         featureId,
