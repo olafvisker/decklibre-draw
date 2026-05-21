@@ -99,11 +99,6 @@ export abstract class BaseDrawMode implements DrawMode {
     return features;
   }
 
-  createInitialFeature(_draw: DrawController, _coord: Position) {
-    // Deprecated: initial feature creation now handled by updateShape
-    // Can be overridden by custom modes if needed
-  }
-
   updateShape(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
     const mergedProps = { ...this.properties, ...props };
     const isInitialCreation = this.featureIds.length === 0;
