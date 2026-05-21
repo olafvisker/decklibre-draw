@@ -48,7 +48,9 @@ export abstract class BaseDrawMode implements DrawMode {
     this.coordinates.push(coord);
 
     if (this.coordinates.length === 1) {
-      this.createInitialFeature(draw, coord);
+      // For modes needing multiple points, create initial preview with duplicated coordinate
+      const initialCoords = this.config.pointCount === 1 ? [coord] : [coord, coord];
+      this.updateShape(draw, initialCoords, { preview: true });
       if (!this.config.pointCount || this.config.pointCount > 1) return;
     }
 
@@ -97,46 +99,40 @@ export abstract class BaseDrawMode implements DrawMode {
     return features;
   }
 
-  createInitialFeature(draw: DrawController, coord: Position) {
-    const initialCoords = this.config.pointCount === 1 ? [coord] : [coord, coord];
-    const features = this.generate(draw, initialCoords, undefined, this.properties);
-
-    this.featureIds = features.map((f) => f.id!).filter((id) => id !== undefined);
-    draw.state.addFeatures(features);
-
-    // Store control points in state
-    const primaryId = this.getPrimaryFeatureId();
-    if (primaryId) {
-      draw.state.setControlPoints(primaryId, initialCoords);
-    }
-
-    if (this.featureIds.length > 0) this.updateControlPoints(draw);
+  createInitialFeature(_draw: DrawController, _coord: Position) {
+    // Deprecated: initial feature creation now handled by updateShape
+    // Can be overridden by custom modes if needed
   }
 
   updateShape(draw: DrawController, coords: Position[], props?: Record<string, unknown>) {
-    if (this.featureIds.length === 0) return;
     const mergedProps = { ...this.properties, ...props };
+    const isInitialCreation = this.featureIds.length === 0;
 
-    const features = this.generate(draw, coords, this.featureIds, mergedProps);
-
-    // Update stored IDs if feature count changed
+    // Generate features (initial or update)
+    const features = this.generate(draw, coords, isInitialCreation ? undefined : this.featureIds, mergedProps);
     const newIds = features.map((f) => f.id!).filter((id) => id !== undefined);
-    if (newIds.length !== this.featureIds.length) {
-      // Remove old features that no longer exist
-      const removedIds = this.featureIds.filter(id => !newIds.includes(id));
-      if (removedIds.length > 0) {
-        draw.state.removeFeatures(removedIds);
-      }
+
+    if (isInitialCreation) {
       this.featureIds = newIds;
+      draw.state.addFeatures(features);
+    } else {
+      // Handle dynamic feature count changes
+      if (newIds.length !== this.featureIds.length) {
+        const removedIds = this.featureIds.filter(id => !newIds.includes(id));
+        if (removedIds.length > 0) {
+          draw.state.removeFeatures(removedIds);
+        }
+        this.featureIds = newIds;
+      }
+
+      features.forEach((feature) => {
+        if (feature.id !== undefined) {
+          draw.state.updateFeature(feature.id, feature);
+        }
+      });
     }
 
-    features.forEach((feature) => {
-      if (feature.id !== undefined) {
-        draw.state.updateFeature(feature.id, feature);
-      }
-    });
-
-    // Update control points in state
+    // Update control points
     const primaryId = this.getPrimaryFeatureId();
     if (primaryId) {
       draw.state.setControlPoints(primaryId, coords);
