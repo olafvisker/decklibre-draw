@@ -108,20 +108,14 @@ export abstract class BaseDrawMode implements DrawMode {
     const newIds = features.map((f) => f.id!).filter((id) => id !== undefined);
 
     if (isInitialCreation) {
-      this.featureIds = newIds;
       draw.state.addFeatures(features);
+      this.featureIds = newIds;
     } else {
-      // Handle dynamic feature count changes
-      if (newIds.length !== this.featureIds.length) {
-        const removedIds = this.featureIds.filter((id) => !newIds.includes(id));
-        if (removedIds.length > 0) {
-          draw.state.removeFeatures(removedIds);
-        }
-        this.featureIds = newIds;
+      const removedIds = this.featureIds.filter((id) => !newIds.includes(id));
+      if (removedIds.length > 0) {
+        draw.state.removeFeatures(removedIds);
       }
 
-      // Split features into existing (to update) and new (to add)
-      // Check if features actually exist in state, not just in featureIds
       const featuresToUpdate: Feature[] = [];
       const featuresToAdd: Feature[] = [];
 
@@ -145,6 +139,8 @@ export abstract class BaseDrawMode implements DrawMode {
       if (featuresToAdd.length > 0) {
         draw.state.addFeatures(featuresToAdd);
       }
+
+      this.featureIds = newIds.filter((id) => draw.state.getFeature(id) !== undefined);
     }
 
     // Update control points
@@ -152,6 +148,8 @@ export abstract class BaseDrawMode implements DrawMode {
     if (primaryId) {
       draw.state.setControlPoints(primaryId, coords);
     }
+
+    this.syncFeatureIds(draw);
   }
 
   updateControlPoints(draw: DrawController) {
@@ -196,9 +194,14 @@ export abstract class BaseDrawMode implements DrawMode {
     return this.featureIds[0];
   }
 
+  protected syncFeatureIds(draw: DrawController): void {
+    this.featureIds = this.featureIds.filter((id) => draw.state.getFeature(id) !== undefined);
+  }
+
   finishShape(draw: DrawController) {
     this.updateShape(draw, this.coordinates, { preview: false });
     this.featureIds.forEach((id) => draw.state.clearControlPoints(id));
+    this.syncFeatureIds(draw);
     this.reset(draw);
   }
 
