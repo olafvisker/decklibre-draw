@@ -316,8 +316,8 @@ export class EditMode implements DrawMode {
     if (modeName) {
       const mode = draw.getMode(modeName);
       if (mode?.generate) {
-        // Get all features in the group
-        const groupIds = draw.state.getGroupIds( feature.id);
+        // Get existing feature IDs in the group
+        const groupIds = draw.state.getGroupIds(feature.id);
         const features = mode.generate(draw, coords, groupIds, props);
 
         features.forEach(f => {

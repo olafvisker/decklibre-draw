@@ -118,6 +118,18 @@ export abstract class BaseDrawMode implements DrawMode {
     const mergedProps = { ...this.properties, ...props };
 
     const features = this.generate(draw, coords, this.featureIds, mergedProps);
+
+    // Update stored IDs if feature count changed
+    const newIds = features.map((f) => f.id!).filter((id) => id !== undefined);
+    if (newIds.length !== this.featureIds.length) {
+      // Remove old features that no longer exist
+      const removedIds = this.featureIds.filter(id => !newIds.includes(id));
+      if (removedIds.length > 0) {
+        draw.state.removeFeatures(removedIds);
+      }
+      this.featureIds = newIds;
+    }
+
     features.forEach((feature) => {
       if (feature.id !== undefined) {
         draw.state.updateFeature(feature.id, feature);

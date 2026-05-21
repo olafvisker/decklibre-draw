@@ -30,11 +30,7 @@ export class DrawCircleMode extends BaseDrawMode {
     const feature = circle(center, radius, { steps: this.steps, units: "meters" });
 
     feature.id = ids?.[0] ?? uuid();
-    feature.properties = {
-      ...props,
-      mode: this.name,
-      insertable: false,
-    };
+    feature.properties = { insertable: false, ...props, mode: this.name };
     return [feature];
   }
 }

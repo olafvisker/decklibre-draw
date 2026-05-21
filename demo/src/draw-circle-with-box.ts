@@ -22,9 +22,8 @@ export class DrawCircleWithBoxMode extends DrawCircleMode {
     }
 
     const groupId = (props?.groupId as string | number) ?? uuid();
-    const featureIds = ids && ids.length >= 2 ? ids : [uuid(), uuid()];
 
-    const [circle] = super.generate(draw, points, [featureIds[0]], props);
+    const [circle] = super.generate(draw, points, ids ? [ids[0]] : undefined, props);
 
     if (circle.properties) {
       circle.properties.groupId = groupId;
@@ -43,7 +42,7 @@ export class DrawCircleWithBoxMode extends DrawCircleMode {
     // Create box
     const box: Feature<Polygon> = {
       type: "Feature",
-      id: featureIds[1],
+      id: ids?.[1] ?? uuid(),
       geometry: {
         type: "Polygon",
         coordinates: [[topLeft, topRight, bottomRight, bottomLeft, topLeft]],

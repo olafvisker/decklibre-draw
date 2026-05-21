@@ -18,15 +18,14 @@ export class DrawLineStringMode extends BaseDrawMode {
   ): Feature<LineString>[] {
     const feature: Feature<LineString> = {
       type: "Feature",
+      id: ids?.[0] ?? uuid(),
       geometry: { type: "LineString", coordinates: points },
-      properties: {},
+      properties: {
+        ...props,
+        mode: this.name,
+      },
     };
 
-    feature.id = ids?.[0] ?? uuid();
-    feature.properties = {
-      ...props,
-      mode: this.name,
-    };
     return [feature];
   }
 }

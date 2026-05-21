@@ -30,16 +30,11 @@ export class DrawRectangleMode extends BaseDrawMode {
 
     const feature: Feature<Polygon> = {
       type: "Feature",
+      id: ids?.[0] ?? uuid(),
       geometry: { type: "Polygon", coordinates: [coords] },
-      properties: {},
+      properties: { insertable: false, ...props, mode: this.name },
     };
 
-    feature.id = ids?.[0] ?? uuid();
-    feature.properties = {
-      ...props,
-      mode: this.name,
-      insertable: false,
-    };
     return [feature];
   }
 }

@@ -18,15 +18,14 @@ export class DrawPointMode extends BaseDrawMode {
   ): Feature<Point>[] {
     const feature: Feature<Point> = {
       type: "Feature",
+      id: ids?.[0] ?? uuid(),
       geometry: { type: "Point", coordinates: points[0] },
-      properties: {},
+      properties: {
+        ...props,
+        mode: this.name,
+      },
     };
 
-    feature.id = ids?.[0] ?? uuid();
-    feature.properties = {
-      ...props,
-      mode: this.name,
-    };
     return [feature];
   }
 }

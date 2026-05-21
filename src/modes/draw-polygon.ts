@@ -18,15 +18,11 @@ export class DrawPolygonMode extends BaseDrawMode {
   ): Feature<Polygon>[] {
     const feature: Feature<Polygon> = {
       type: "Feature",
+      id: ids?.[0] ?? uuid(),
       geometry: { type: "Polygon", coordinates: [[...points, points[0]]] },
-      properties: {},
+      properties: { ...props, mode: this.name },
     };
 
-    feature.id = ids?.[0] ?? uuid();
-    feature.properties = {
-      ...props,
-      mode: this.name,
-    };
     return [feature];
   }
 }
