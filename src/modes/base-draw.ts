@@ -120,11 +120,30 @@ export abstract class BaseDrawMode implements DrawMode {
         this.featureIds = newIds;
       }
 
+      // Split features into existing (to update) and new (to add)
+      const existingIds = new Set(this.featureIds);
+      const featuresToUpdate: Feature[] = [];
+      const featuresToAdd: Feature[] = [];
+
       features.forEach((feature) => {
         if (feature.id !== undefined) {
-          draw.state.updateFeature(feature.id, feature);
+          if (existingIds.has(feature.id)) {
+            featuresToUpdate.push(feature);
+          } else {
+            featuresToAdd.push(feature);
+          }
         }
       });
+
+      // Update existing features
+      featuresToUpdate.forEach((feature) => {
+        draw.state.updateFeature(feature.id!, feature);
+      });
+
+      // Add new features
+      if (featuresToAdd.length > 0) {
+        draw.state.addFeatures(featuresToAdd);
+      }
     }
 
     // Update control points
