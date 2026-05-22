@@ -49,24 +49,29 @@ export class EditMode implements DrawMode {
   }
 
   onClick(info: DrawInfo, draw: DrawController) {
-    this.deselectAll(draw);
-
     const f = info.feature;
-    if (!f || !f.id) return;
+    if (!f || !f.id) {
+      this.deselectAll(draw);
+      return;
+    }
 
-    const { controlPoint, midpoint, insertIndex } = f.properties || {};
+    const { controlPoint, midpoint, index } = f.properties || {};
+
+    // Don't deselect when interacting with control points or midpoints
     if (controlPoint) return;
 
     if (midpoint) {
       const selected = this.getSelectedFeature(draw);
       if (!selected) return;
-      this.insertVertex(draw, insertIndex, [info.lng, info.lat]);
+      this.insertVertex(draw, index as number, [info.lng, info.lat]);
       this.createControlPoints(draw);
       return;
     }
 
+    this.deselectAll(draw);
+
     // Resolve to primary feature for grouped features
-    const primaryFeature = draw.state.getPrimaryFeature( f.id);
+    const primaryFeature = draw.state.getPrimaryFeature(f.id);
     const primaryId = primaryFeature?.id ?? f.id;
 
     if (this.instantEdit) {
@@ -307,7 +312,6 @@ export class EditMode implements DrawMode {
   private regenerateAndUpdate(draw: DrawController, feature: Feature, coords: Position[]): void {
     if (!feature.id) return;
 
-    // Update control points in state
     draw.state.setControlPoints(feature.id, coords);
 
     const modeName = feature.properties?.mode;
@@ -316,13 +320,24 @@ export class EditMode implements DrawMode {
     if (modeName) {
       const mode = draw.getMode(modeName);
       if (mode?.generate) {
-        // Get existing feature IDs in the group
         const groupIds = draw.state.getGroupIds(feature.id);
         const features = mode.generate(draw, coords, groupIds, props);
+        const newIds = features.map(f => f.id).filter((id): id is string | number => id !== undefined);
 
+        // Remove features no longer returned by generate (count decreased)
+        const removedIds = groupIds.filter(id => !newIds.includes(id));
+        if (removedIds.length > 0) {
+          draw.state.removeFeatures(removedIds);
+        }
+
+        // Update existing features or add newly generated ones (count increased)
         features.forEach(f => {
           if (f.id !== undefined) {
-            draw.state.updateFeature(f.id, f);
+            if (draw.state.getFeature(f.id)) {
+              draw.state.updateFeature(f.id, f);
+            } else {
+              draw.state.addFeature(f);
+            }
           }
         });
         return;

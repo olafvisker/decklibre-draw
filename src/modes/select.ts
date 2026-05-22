@@ -94,16 +94,26 @@ export class SelectMode implements DrawMode {
     if (mode?.generate) {
       const movedControlPoints = controlPoints.map(([x, y]) => [x + dx, y + dy]);
 
-      // Update control points in state
       draw.state.setControlPoints(primaryFeature.id, movedControlPoints);
 
-      // Get existing feature IDs in the group
       const groupIds = draw.state.getGroupIds(this._dragFeatureId);
       const features = mode.generate(draw, movedControlPoints, groupIds, primaryFeature.properties);
+      const newIds = features.map(f => f.id).filter((id): id is string | number => id !== undefined);
 
+      // Remove features no longer returned by generate (count decreased)
+      const removedIds = groupIds.filter(id => !newIds.includes(id));
+      if (removedIds.length > 0) {
+        draw.state.removeFeatures(removedIds);
+      }
+
+      // Update existing features or add newly generated ones (count increased)
       features.forEach((feature) => {
         if (feature.id !== undefined) {
-          draw.state.updateFeature(feature.id, feature);
+          if (draw.state.getFeature(feature.id)) {
+            draw.state.updateFeature(feature.id, feature);
+          } else {
+            draw.state.addFeature(feature);
+          }
         }
       });
     }
